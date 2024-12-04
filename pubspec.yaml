@@ -1,0 +1,26 @@
+name: quirk
+description: A holistic productivity app
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  provider: ^6.1.2
+  shared_preferences: ^2.3.3
+  intl: ^0.18.1
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.3
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
