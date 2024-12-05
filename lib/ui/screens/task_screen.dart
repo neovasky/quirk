@@ -6,6 +6,8 @@ import '../dialogs/add_task_dialog.dart';
 import '../dialogs/task_details_dialog.dart';
 import '../dialogs/task_filter_dialog.dart';
 import '../components/task_list_tile.dart';
+import 'package:flutter/services.dart';
+
 
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -215,65 +217,91 @@ class _TaskList extends StatelessWidget {
         final task = tasks[index];
         
         return Column(
+          key: ValueKey(task.id),
           children: [
-            LongPressDraggable<int>(
-              data: index,
-              delay: const Duration(milliseconds: 71),  // Reduced delay for better responsiveness
-              hapticFeedbackOnStart: true,  // Add haptic feedback when drag starts
+            LongPressDraggable<Task>(
+              data: task,
+              delay: const Duration(milliseconds: 73), // Time before drag activates
+              hapticFeedbackOnStart: true,
               feedback: Material(
-                elevation: 8.0,  // Increased elevation for better depth
+                elevation: 12.0,
                 borderRadius: BorderRadius.circular(8),
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width - 32,
                   child: TaskListTile(
                     key: ValueKey('drag_${task.id}'),
                     task: task,
-                    onTap: () {},
-                    onComplete: () {},
+                    onTap: () {}, // No tap in feedback
+                    onComplete: () {}, // No complete in feedback
                     isDraggable: true,
-                    isDragging: true,  // Added state for dragging visual
+                    isDragging: true,
                   ),
                 ),
               ),
-              childWhenDragging: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
+              childWhenDragging: Opacity(
                 opacity: 0.3,
-                child: SizedBox(
+                child: Container(
                   height: 72,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 8),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              child: DragTarget<Task>(
+                onWillAcceptWithDetails: (details) => details.data != task,
+                onAcceptWithDetails: (details) {
+                  HapticFeedback.mediumImpact();
+                  final taskService = context.read<TaskService>();
+                  final fromIndex = taskService.tasks.indexWhere((t) => t.id == details.data.id);
+                  final toIndex = taskService.tasks.indexWhere((t) => t.id == task.id);
+                  
+                  if (fromIndex != -1 && toIndex != -1) {
+                    taskService.reorderTasks(fromIndex, toIndex);
+                  }
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return Container(
+                    margin: EdgeInsets.only(
+                      top: candidateData.isNotEmpty ? 16 : 0,
+                      bottom: candidateData.isNotEmpty ? 16 : 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                      ),
+                      boxShadow: candidateData.isNotEmpty ? [
+                        BoxShadow(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ] : null,
                     ),
-                  ),
-                ),
-              ),
-              child: DragTarget<int>(
-                onWillAcceptWithDetails: (details) => details.data != index,
-                onAcceptWithDetails: (details) {
-                  final taskService = context.read<TaskService>();
-                  taskService.reorderTasks(details.data, index);
-                },
-                builder: (context, candidateData, rejectedData) {
-                  return MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: TaskListTile(
-                      key: ValueKey(task.id),
-                      task: task,
-                      onTap: () => onTaskTap(task),
-                      onComplete: () => onTaskComplete(task),
-                      isDraggable: true,
-                      isHighlighted: candidateData.isNotEmpty,
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 48,
+                          child: Center(
+                            child: Icon(Icons.drag_indicator, color: Colors.grey),
+                          ),
+                        ),
+                        Expanded(
+                          child: TaskListTile(
+                            key: ValueKey(task.id),
+                            task: task,
+                            onTap: () => onTaskTap(task),
+                            onComplete: () => onTaskComplete(task),
+                            isDraggable: true,
+                            isHighlighted: candidateData.isNotEmpty,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 8),
           ],
         );
       },

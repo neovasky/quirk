@@ -210,10 +210,7 @@ Future<void> reorderTasks(int oldIndex, int newIndex) async {
       throw RangeError('Invalid index for reordering');
     }
     
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    
+    // Don't adjust newIndex when moving up the list
     final task = _tasks.removeAt(oldIndex);
     _tasks.insert(newIndex, task);
     
