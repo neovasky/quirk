@@ -28,6 +28,7 @@ class TaskFilter {
     return true;
   }
 }
+
 class TaskFilterDialog extends StatefulWidget {
   final TaskFilter currentFilter;
   final List<String> availableCategories;
@@ -57,106 +58,172 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Filter Tasks'),
-      content: SingleChildScrollView(
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        width: 400,
+        constraints: const BoxConstraints(
+          minHeight: 300,
+          maxHeight: 500,
+        ),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Priority', style: TextStyle(fontWeight: FontWeight.bold)),
-            Wrap(
-              spacing: 8,
-              children: TaskPriority.values.map((priority) {
-                return FilterChip(
-                  label: Text(priority.name.toUpperCase()),
-                  selected: _selectedPriorities.contains(priority),
-                  onSelected: (selected) {
-                    setState(() {
-                      if (selected) {
-                        _selectedPriorities.add(priority);
-                      } else {
-                        _selectedPriorities.remove(priority);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
+            const Text(
+              'Filter Tasks',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 16),
-            const Text('Categories', style: TextStyle(fontWeight: FontWeight.bold)),
-            if (widget.availableCategories.isEmpty)
-              const Text('No categories available', style: TextStyle(fontStyle: FontStyle.italic))
-            else
-              Wrap(
-                spacing: 8,
-                children: widget.availableCategories.map((category) {
-                  return FilterChip(
-                    label: Text(category),
-                    selected: _selectedCategories.contains(category),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedCategories.add(category);
-                        } else {
-                          _selectedCategories.remove(category);
-                        }
-                      });
-                    },
+            const SizedBox(height: 24),
+            const Text('Priority', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: TaskPriority.values.map((priority) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(priority.name.toUpperCase()),
+                      selected: _selectedPriorities.contains(priority),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedPriorities.add(priority);
+                          } else {
+                            _selectedPriorities.remove(priority);
+                          }
+                        });
+                      },
+                    ),
                   );
                 }).toList(),
               ),
-            const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 24),
+            const Text('Categories', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (widget.availableCategories.isEmpty)
+              const Text(
+                'No categories available',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              )
+            else
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: widget.availableCategories.map((category) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(category),
+                        selected: _selectedCategories.contains(category),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedCategories.add(category);
+                            } else {
+                              _selectedCategories.remove(category);
+                            }
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            const SizedBox(height: 24),
             const Text('Status', style: TextStyle(fontWeight: FontWeight.bold)),
-            SegmentedButton<bool?>(
-              segments: const [
-                ButtonSegment(
-                  value: null,
-                  label: Text('All'),
+            const SizedBox(height: 8),
+            Container(
+              height: 40,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Row(
+                  children: _buildStatusButtons(),
                 ),
-                ButtonSegment(
-                  value: false,
-                  label: Text('Pending'),
+              ),
+            ),
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(null),
+                  child: const Text('Cancel'),
                 ),
-                ButtonSegment(
-                  value: true,
-                  label: Text('Completed'),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    final filter = TaskFilter(
+                      priorities: _selectedPriorities,
+                      categories: _selectedCategories,
+                      isCompleted: _selectedCompletion,
+                    );
+                    Navigator.of(context).pop(filter);
+                  },
+                  child: const Text('Apply'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    const filter = TaskFilter();
+                    Navigator.of(context).pop(filter);
+                  },
+                  child: const Text('Clear'),
                 ),
               ],
-              selected: {_selectedCompletion},
-              onSelectionChanged: (Set<bool?> selected) {
-                setState(() {
-                  _selectedCompletion = selected.first;
-                });
-              },
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () {
-            final filter = TaskFilter(
-              priorities: _selectedPriorities,
-              categories: _selectedCategories,
-              isCompleted: _selectedCompletion,
-            );
-            Navigator.of(context).pop(filter);
-          },
-          child: const Text('Apply'),
-        ),
-        TextButton(
-          onPressed: () {
-            const filter = TaskFilter();
-            Navigator.of(context).pop(filter);
-          },
-          child: const Text('Clear'),
-        ),
-      ],
     );
+  }
+
+  List<Widget> _buildStatusButtons() {
+    final buttonData = [
+      (label: 'All', value: null),
+      (label: 'Pending', value: false),
+      (label: 'Completed', value: true),
+    ];
+
+    return buttonData.map((data) {
+      final isSelected = _selectedCompletion == data.value;
+      return Expanded(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() => _selectedCompletion = data.value),
+            child: Container(
+              height: double.infinity,
+              decoration: BoxDecoration(
+                color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Colors.transparent,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isSelected) ...[
+                    const Icon(Icons.check, size: 16),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(data.label),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 }

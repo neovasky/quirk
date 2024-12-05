@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
 import '../../core/services/task_service.dart';
-import '../../core/widgets/reorderable_item.dart';
 
 class CustomTaskList extends StatefulWidget {
   final List<Task> tasks;
@@ -23,10 +22,6 @@ class CustomTaskList extends StatefulWidget {
 }
 
 class _CustomTaskListState extends State<CustomTaskList> {
-  Task? draggedTask;
-  double dragOffset = 0;
-  int? draggedIndex;
-
   @override
   Widget build(BuildContext context) {
     return Consumer<TaskService>(
@@ -51,71 +46,64 @@ class _CustomTaskListState extends State<CustomTaskList> {
           itemCount: filteredTasks.length,
           itemBuilder: (context, index) {
             final task = filteredTasks[index];
-            final isBeingDragged = draggedTask?.id == task.id;
+            final dragKey = ValueKey('drag_${task.id}');
+            final targetKey = ValueKey('target_${task.id}');
             
-            return ReorderableItem(
-              key: ValueKey(task.id),
-              enabled: true,
-              onReorderStart: () {
-                setState(() {
-                  draggedTask = task;
-                  draggedIndex = index;
-                });
-              },
-              onReorderUpdate: (offset) {
-                setState(() {
-                  dragOffset = offset;
-                  // Calculate new position
-                  final newIndex = ((dragOffset) / 72).round() + draggedIndex!;
-                  if (newIndex != draggedIndex && 
-                      newIndex >= 0 && 
-                      newIndex < filteredTasks.length) {
-                    final mainOldIndex = taskService.tasks.indexOf(task);
-                    final targetTask = filteredTasks[newIndex];
-                    final mainNewIndex = taskService.tasks.indexOf(targetTask);
-                    taskService.reorderTasks(mainOldIndex, mainNewIndex);
-                    draggedIndex = newIndex;
-                  }
-                });
-              },
-              onReorderEnd: () {
-                setState(() {
-                  draggedTask = null;
-                  dragOffset = 0;
-                  draggedIndex = null;
-                });
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: isBeingDragged
-                      ? Theme.of(context).colorScheme.surfaceContainerHighest
-                      : Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(8),
+            return Draggable<int>(
+              key: dragKey,
+              data: index,
+              feedback: Material(
+                elevation: 6.0,
+                child: Container(
+                  width: MediaQuery.of(context).size.width - 32,
+                  color: Theme.of(context).colorScheme.surface,
+                  child: ListTile(
+                    leading: const Icon(Icons.drag_indicator, color: Colors.grey),
+                    title: Text(task.name),
+                  ),
                 ),
-                child: ListTile(
-                  leading: const MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: Icon(
-                      Icons.drag_indicator,
-                      color: Colors.grey,
-                    ),
+              ),
+              child: DragTarget<int>(
+                key: targetKey,
+                onWillAcceptWithDetails: (details) {
+                  return details.data != index;
+                },
+                onAcceptWithDetails: (details) {
+                  final oldIndex = details.data;
+                  final newIndex = index;
+                  taskService.reorderTasks(oldIndex, newIndex);
+                },
+                builder: (context, candidateData, rejectedData) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: candidateData.isNotEmpty ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ] : null,
                   ),
-                  title: Text(
-                    task.name,
-                    style: TextStyle(
-                      decoration: task.completed ? TextDecoration.lineThrough : null,
+                  child: ListTile(
+                    leading: const Icon(Icons.drag_indicator, color: Colors.grey),
+                    title: Text(
+                      task.name,
+                      style: TextStyle(
+                        decoration: task.completed ? TextDecoration.lineThrough : null,
+                      ),
                     ),
-                  ),
-                  subtitle: _buildSubtitle(context, task),
-                  trailing: IconButton(
-                    icon: Icon(
-                      task.completed ? Icons.check_circle : Icons.circle_outlined,
-                      color: task.priorityColor,
+                    subtitle: _buildSubtitle(context, task),
+                    trailing: IconButton(
+                      icon: Icon(
+                        task.completed ? Icons.check_circle : Icons.circle_outlined,
+                        color: task.priorityColor,
+                      ),
+                      onPressed: () => widget.onTaskComplete(task),
                     ),
-                    onPressed: () => widget.onTaskComplete(task),
+                    onTap: () => widget.onTaskTap(task),
                   ),
-                  onTap: () => widget.onTaskTap(task),
                 ),
               ),
             );
@@ -143,21 +131,12 @@ class _CustomTaskListState extends State<CustomTaskList> {
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    final yesterday = now.subtract(const Duration(days: 1));
-    final tomorrow = now.add(const Duration(days: 1));
+    final difference = date.difference(now).inDays;
 
-    if (date.year == now.year && date.month == now.month && date.day == now.day) {
-      return 'Today';
-    } else if (date.year == yesterday.year &&
-        date.month == yesterday.month &&
-        date.day == yesterday.day) {
-      return 'Yesterday';
-    } else if (date.year == tomorrow.year &&
-        date.month == tomorrow.month &&
-        date.day == tomorrow.day) {
-      return 'Tomorrow';
-    }
+    if (difference == 0) return 'Today';
+    if (difference == 1) return 'Tomorrow';
+    if (difference == -1) return 'Yesterday';
 
-    return '${date.month}/${date.day}';
+    return '${date.month}/${date.day}/${date.year}';
   }
 }

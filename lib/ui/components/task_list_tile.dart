@@ -6,6 +6,8 @@ class TaskListTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onComplete;
   final bool isDraggable;
+  final bool isHighlighted;
+  final bool isDragging;
 
   const TaskListTile({
     super.key,
@@ -13,75 +15,81 @@ class TaskListTile extends StatelessWidget {
     required this.onTap,
     required this.onComplete,
     this.isDraggable = false,
+    this.isHighlighted = false,
+    this.isDragging = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isDraggable)
-            const ReorderableDragStartListener(
-              index: -1,
-              child: Icon(Icons.drag_handle),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.all(Radius.circular(8)),
+        border: isHighlighted 
+          ? Border.all(
+              color: Theme.of(context).colorScheme.primary,
+              width: 2,
+            )
+          : null,
+        boxShadow: [
+          if (isHighlighted || isDragging)
+            BoxShadow(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              blurRadius: isDragging ? 8 : 4,
+              spreadRadius: isDragging ? 2 : 1,
+              offset: isDragging ? const Offset(0, 4) : const Offset(0, 2),
             ),
-          InkWell(
-            onTap: onComplete,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: task.completed ? task.priorityColor : Colors.transparent,
-                border: Border.all(
-                  color: task.priorityColor,
-                  width: 2,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: task.completed
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : null,
-            ),
-          ),
         ],
       ),
-      title: Text(
-        task.name,
-        style: TextStyle(
-          decoration: task.completed ? TextDecoration.lineThrough : null,
+      child: ListTile(
+        // Removed the leading icon since it's now handled by the drag handle overlay
+        contentPadding: isDraggable 
+            ? const EdgeInsets.only(left: 48, right: 16)  // Space for drag handle
+            : null,
+        title: Text(
+          task.name,
+          style: TextStyle(
+            decoration: task.completed ? TextDecoration.lineThrough : null,
+          ),
         ),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Duration and project info
-          Text(
-            'Duration: ${task.duration.inMinutes} min'
-            '${task.project != null ? ' • ${task.project}' : ''}'
-            '${task.dueDate != null ? ' • Due: ${task.dueDate.toString().split(' ')[0]}' : ''}',
+        subtitle: _buildSubtitle(context),
+        trailing: IconButton(
+          icon: Icon(
+            task.completed ? Icons.check_circle : Icons.circle_outlined,
+            color: task.priorityColor,
           ),
-          // Labels
-          if (task.labels.isNotEmpty)
-            Wrap(
-              spacing: 4,
-              children: task.labels.map((label) => Chip(
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                label: Text(
-                  label,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                labelStyle: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              )).toList(),
-            ),
-        ],
+          onPressed: onComplete,
+        ),
+        onTap: onTap,
       ),
-      onTap: onTap,
     );
+  }
+
+  Widget _buildSubtitle(BuildContext context) {
+    if (task.dueDate == null && task.project == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Text(
+      [
+        if (task.project != null) task.project,
+        if (task.dueDate != null) 'Due: ${_formatDate(task.dueDate!)}',
+      ].join(' • '),
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = date.difference(now).inDays;
+
+    if (difference == 0) return 'Today';
+    if (difference == 1) return 'Tomorrow';
+    if (difference == -1) return 'Yesterday';
+
+    return '${date.month}/${date.day}/${date.year}';
   }
 }

@@ -208,23 +208,75 @@ class _TaskList extends StatelessWidget {
       );
     }
 
-return ReorderableListView.builder(
-  buildDefaultDragHandles: false,
-  onReorder: (oldIndex, newIndex) {
-    context.read<TaskService>().reorderTasks(oldIndex, newIndex);
-  },
-  itemCount: tasks.length,
-  itemBuilder: (context, index) {
-    final task = tasks[index];
-    return TaskListTile(
-      key: ValueKey(task.id),
-      task: task,
-      onTap: () => onTaskTap(task),
-      onComplete: () => onTaskComplete(task),
-      isDraggable: true,
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        
+        return Column(
+          children: [
+            LongPressDraggable<int>(
+              data: index,
+              delay: const Duration(milliseconds: 71),  // Reduced delay for better responsiveness
+              hapticFeedbackOnStart: true,  // Add haptic feedback when drag starts
+              feedback: Material(
+                elevation: 8.0,  // Increased elevation for better depth
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width - 32,
+                  child: TaskListTile(
+                    key: ValueKey('drag_${task.id}'),
+                    task: task,
+                    onTap: () {},
+                    onComplete: () {},
+                    isDraggable: true,
+                    isDragging: true,  // Added state for dragging visual
+                  ),
+                ),
+              ),
+              childWhenDragging: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: 0.3,
+                child: SizedBox(
+                  height: 72,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              child: DragTarget<int>(
+                onWillAcceptWithDetails: (details) => details.data != index,
+                onAcceptWithDetails: (details) {
+                  final taskService = context.read<TaskService>();
+                  taskService.reorderTasks(details.data, index);
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: TaskListTile(
+                      key: ValueKey(task.id),
+                      task: task,
+                      onTap: () => onTaskTap(task),
+                      onComplete: () => onTaskComplete(task),
+                      isDraggable: true,
+                      isHighlighted: candidateData.isNotEmpty,
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
     );
-  },
-);
-
   }
 }
