@@ -6,7 +6,6 @@ import '../dialogs/add_task_dialog.dart';
 import '../dialogs/task_details_dialog.dart';
 import '../dialogs/task_filter_dialog.dart';
 import '../components/task_list_tile.dart';
-import 'package:flutter/services.dart';
 
 
 class TaskScreen extends StatefulWidget {
@@ -219,32 +218,37 @@ class _TaskList extends StatelessWidget {
         return Column(
           key: ValueKey(task.id),
           children: [
-            LongPressDraggable<Task>(
+            Draggable<Task>(
               data: task,
-              delay: const Duration(milliseconds: 73), // Time before drag activates
-              hapticFeedbackOnStart: true,
-              feedback: Material(
-                elevation: 12.0,
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width - 32,
-                  child: TaskListTile(
-                    key: ValueKey('drag_${task.id}'),
-                    task: task,
-                    onTap: () {}, // No tap in feedback
-                    onComplete: () {}, // No complete in feedback
-                    isDraggable: true,
-                    isDragging: true,
+              maxSimultaneousDrags: 1,
+              dragAnchorStrategy: (draggable, context, position) {
+                final RenderBox renderBox = context.findRenderObject() as RenderBox;
+                return renderBox.globalToLocal(position);
+              },
+              feedback: Transform(
+                transform: Matrix4.identity(),
+                child: Material(
+                  elevation: 12.0,
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width - 32,
+                    child: TaskListTile(
+                      key: ValueKey('drag_${task.id}'),
+                      task: task,
+                      onTap: () {},
+                      onComplete: () {},
+                      isDraggable: true,
+                      isDragging: true,
+                    ),
                   ),
                 ),
               ),
-              childWhenDragging: Opacity(
-                opacity: 0.3,
+              childWhenDragging: SizedBox(
+                height: 72,
                 child: Container(
-                  height: 72,
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
+                    color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
@@ -252,7 +256,6 @@ class _TaskList extends StatelessWidget {
               child: DragTarget<Task>(
                 onWillAcceptWithDetails: (details) => details.data != task,
                 onAcceptWithDetails: (details) {
-                  HapticFeedback.mediumImpact();
                   final taskService = context.read<TaskService>();
                   final fromIndex = taskService.tasks.indexWhere((t) => t.id == details.data.id);
                   final toIndex = taskService.tasks.indexWhere((t) => t.id == task.id);
@@ -264,7 +267,6 @@ class _TaskList extends StatelessWidget {
                 builder: (context, candidateData, rejectedData) {
                   return Container(
                     margin: EdgeInsets.only(
-                      top: candidateData.isNotEmpty ? 16 : 0,
                       bottom: candidateData.isNotEmpty ? 16 : 8,
                     ),
                     decoration: BoxDecoration(
@@ -292,7 +294,7 @@ class _TaskList extends StatelessWidget {
                             task: task,
                             onTap: () => onTaskTap(task),
                             onComplete: () => onTaskComplete(task),
-                            isDraggable: true,
+                            isDraggable: false,
                             isHighlighted: candidateData.isNotEmpty,
                           ),
                         ),
