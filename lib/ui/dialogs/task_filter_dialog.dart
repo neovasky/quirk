@@ -14,17 +14,28 @@ class TaskFilter {
   });
 
   bool matches(Task task) {
+    // Check priorities
     if (priorities.isNotEmpty && !priorities.contains(task.priority)) {
       return false;
     }
-    if (categories.isNotEmpty && 
-        task.project != null && 
-        !categories.contains(task.project)) {
-      return false;
+
+    // Check project/categories
+    if (categories.isNotEmpty) {
+      // If categories are selected but task has no project, don't show it
+      if (task.project == null) {
+        return false;
+      }
+      // If categories are selected and task has a project, check if it matches
+      if (!categories.contains(task.project)) {
+        return false;
+      }
     }
+
+    // Check completion status
     if (isCompleted != null && task.completed != isCompleted) {
       return false;
     }
+
     return true;
   }
 }
@@ -106,11 +117,11 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Categories', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Projects', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             if (widget.availableCategories.isEmpty)
               const Text(
-                'No categories available',
+                'No projects available',
                 style: TextStyle(fontStyle: FontStyle.italic),
               )
             else
@@ -157,31 +168,34 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
             ),
             const Spacer(),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(null),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    final filter = TaskFilter(
-                      priorities: _selectedPriorities,
-                      categories: _selectedCategories,
-                      isCompleted: _selectedCompletion,
-                    );
-                    Navigator.of(context).pop(filter);
-                  },
-                  child: const Text('Apply'),
-                ),
-                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
                     const filter = TaskFilter();
                     Navigator.of(context).pop(filter);
                   },
                   child: const Text('Clear'),
+                ),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(null),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        final filter = TaskFilter(
+                          priorities: _selectedPriorities,
+                          categories: _selectedCategories,
+                          isCompleted: _selectedCompletion,
+                        );
+                        Navigator.of(context).pop(filter);
+                      },
+                      child: const Text('Apply'),
+                    ),
+                  ],
                 ),
               ],
             ),
