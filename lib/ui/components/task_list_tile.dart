@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/models/task.dart';
@@ -43,17 +44,15 @@ class TaskListTile extends StatelessWidget {
               CompletionBubble(
                 isCompleted: task.completed,
                 color: task.priorityColor,
-                onTap: onComplete,
+                onComplete: onComplete,
               ),
               const SizedBox(width: 16),
-              // Task details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        // Task name
                         Expanded(
                           child: Text(
                             task.name,
@@ -63,7 +62,6 @@ class TaskListTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // More options button
                         IconButton(
                           icon: const Icon(Icons.more_vert, size: 20),
                           onPressed: onTap,
@@ -75,7 +73,6 @@ class TaskListTile extends StatelessWidget {
                     ),
                     if (task.project != null || task.duration.inMinutes > 0 || task.dueDate != null)
                       const SizedBox(height: 4),
-                    // Metadata row
                     Wrap(
                       spacing: 12,
                       children: [
@@ -147,24 +144,27 @@ class TaskListTile extends StatelessWidget {
 class CompletionBubble extends StatefulWidget {
   final bool isCompleted;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback onComplete;
 
   const CompletionBubble({
     super.key,
     required this.isCompleted,
     required this.color,
-    required this.onTap,
+    required this.onComplete,
   });
 
   @override
   State<CompletionBubble> createState() => _CompletionBubbleState();
 }
 
-class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerProviderStateMixin {
+class _CompletionBubbleState extends State<CompletionBubble> with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController _burstController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _checkAnimation;
   late Animation<double> _bounceAnimation;
+  late List<Animation<double>> _burstAnimations;
+  bool _isAnimating = false;
 
   @override
   void initState() {
@@ -172,9 +172,24 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
     _controller = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
+    )..addStatusListener(_onAnimationStatus);
+
+    _burstController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
     );
 
-    // Scale down slightly then bounce back
+    // Create 8 burst particles with different angles
+    _burstAnimations = List.generate(8, (index) {
+      return Tween<double>(begin: 0.0, end: 30.0).animate(
+        CurvedAnimation(
+          parent: _burstController,
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+
+    // Bounce animation sequence
     _bounceAnimation = TweenSequence([
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 0.8)
@@ -193,7 +208,7 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
       ),
     ]).animate(_controller);
 
-    // Checkmark animation
+    // Checkmark and fill animations
     _checkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -201,7 +216,6 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
       ),
     );
 
-    // Fill color animation
     _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -211,65 +225,124 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
 
     if (widget.isCompleted) {
       _controller.value = 1.0;
+      _burstController.value = 1.0;
+    }
+  }
+
+  void _onAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _isAnimating = false;
+      widget.onComplete();  // Call the completion callback after animation finishes
+    }
+  }
+
+  void _handleTap() {
+    if (_isAnimating) return;  // Prevent multiple taps during animation
+    
+    HapticFeedback.lightImpact();
+    
+    if (!widget.isCompleted) {
+      _isAnimating = true;
+      _controller.forward(from: 0.0);
+      _burstController.forward(from: 0.0);
+    } else {
+      _controller.reverse();
+      _burstController.reverse();
+      widget.onComplete();  // For unchecking, we can call immediately
     }
   }
 
   @override
   void didUpdateWidget(CompletionBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isCompleted != oldWidget.isCompleted) {
+    if (widget.isCompleted != oldWidget.isCompleted && !_isAnimating) {
       if (widget.isCompleted) {
-        _controller.forward(from: 0.0);
+        _controller.value = 1.0;
+        _burstController.value = 1.0;
       } else {
-        _controller.reverse();
+        _controller.value = 0.0;
+        _burstController.value = 0.0;
       }
     }
   }
 
   @override
   void dispose() {
+    _controller.removeStatusListener(_onAnimationStatus);
     _controller.dispose();
+    _burstController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        widget.onTap();
-        HapticFeedback.lightImpact();
-      },
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _bounceAnimation.value,
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: widget.isCompleted 
-                  ? Color.lerp(null, widget.color, _scaleAnimation.value)
-                  : null,
-                border: Border.all(
-                  color: widget.color,
-                  width: 2,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: widget.isCompleted ? Center(
-                child: ScaleTransition(
-                  scale: _checkAnimation,
-                  child: const Icon(
-                    Icons.check,
-                    size: 12,
-                    color: Colors.white,
+      onTap: _handleTap,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Burst particles
+          ...List.generate(8, (index) {
+            final angle = (index * 45) * (pi / 180); // Use pi from dart:math
+            return AnimatedBuilder(
+              animation: _burstAnimations[index],
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(
+                    cos(angle) * _burstAnimations[index].value,
+                    sin(angle) * _burstAnimations[index].value,
+                  ),
+                  child: Opacity(
+                    opacity: (1 - _burstController.value),
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: widget.color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+          // Main bubble
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _bounceAnimation.value,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Color.lerp(
+                      Colors.transparent,
+                      widget.color,
+                      _scaleAnimation.value,
+                    ),
+                    border: Border.all(
+                      color: widget.color,
+                      width: 2,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: ScaleTransition(
+                      scale: _checkAnimation,
+                      child: Icon(
+                        Icons.check,
+                        size: 12,
+                        color: _scaleAnimation.value > 0 ? Colors.white : Colors.transparent,
+                      ),
+                    ),
                   ),
                 ),
-              ) : null,
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ],
       ),
     );
   }
