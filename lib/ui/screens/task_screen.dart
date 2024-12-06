@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
 import '../../core/models/task_filter.dart';
 import '../../core/services/task_service.dart';
+import '../components/task_list_tile.dart';
 import '../dialogs/add_task_dialog.dart';
 import '../dialogs/task_details_dialog.dart';
 import '../dialogs/task_filter_dialog.dart';
-import '../components/task_list_tile.dart';
-
 
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -58,7 +58,19 @@ class _TaskScreenState extends State<TaskScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          // Previous AppBar code remains the same until the filter button...
+          title: _isSearching
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Search tasks...',
+                    hintStyle: TextStyle(color: Colors.white70),
+                    border: InputBorder.none,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                )
+              : const Text('Tasks'),
           actions: [
             IconButton(
               icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -93,7 +105,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   setState(() {
                     _filter = newFilter;
                   });
-                  taskService.updateFilter(newFilter);  // Update TaskService with new filter
+                  taskService.updateFilter(newFilter);
                 }
               },
             ),
@@ -167,24 +179,20 @@ class _TaskScreenState extends State<TaskScreen> {
             );
           },
         ),
-floatingActionButton: FloatingActionButton(
-  onPressed: () async {
-    // Store the TaskService before async gap
-    final taskService = context.read<TaskService>();
-    
-    final task = await showDialog<Task>(
-      context: context,
-      builder: (context) => const AddTaskDialog(),
-    );
-    
-    // Check if task not null and widget still mounted
-    if (task != null && mounted) {
-      // Use the stored taskService instead of accessing context again
-      taskService.addTask(task);
-    }
-  },
-  child: const Icon(Icons.add),
-),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final taskService = context.read<TaskService>();
+            final task = await showDialog<Task>(
+              context: context,
+              builder: (context) => const AddTaskDialog(),
+            );
+            
+            if (task != null && mounted) {
+              taskService.addTask(task);
+            }
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }
@@ -204,9 +212,7 @@ class _TaskList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tasks.isEmpty) {
-      return const Center(
-        child: Text('No tasks'),
-      );
+      return const Center(child: Text('No tasks'));
     }
 
     return ListView.builder(
@@ -214,99 +220,189 @@ class _TaskList extends StatelessWidget {
       itemCount: tasks.length,
       itemBuilder: (context, index) {
         final task = tasks[index];
-        
-        return Column(
-          key: ValueKey(task.id),
-          children: [
-            Draggable<Task>(
-              data: task,
-              maxSimultaneousDrags: 1,
-              dragAnchorStrategy: (draggable, context, position) {
-                final RenderBox renderBox = context.findRenderObject() as RenderBox;
-                return renderBox.globalToLocal(position);
-              },
-              feedback: Transform(
-                transform: Matrix4.identity(),
-                child: Material(
-                  elevation: 12.0,
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width - 32,
-                    child: TaskListTile(
-                      key: ValueKey('drag_${task.id}'),
-                      task: task,
-                      onTap: () {},
-                      onComplete: () {},
-                      isDraggable: true,
-                      isDragging: true,
-                    ),
-                  ),
-                ),
-              ),
-              childWhenDragging: SizedBox(
-                height: 72,
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              child: DragTarget<Task>(
-                onWillAcceptWithDetails: (details) => details.data != task,
-                onAcceptWithDetails: (details) {
-                  final taskService = context.read<TaskService>();
-                  final fromIndex = taskService.tasks.indexWhere((t) => t.id == details.data.id);
-                  final toIndex = taskService.tasks.indexWhere((t) => t.id == task.id);
-                  
-                  if (fromIndex != -1 && toIndex != -1) {
-                    taskService.reorderTasks(fromIndex, toIndex);
-                  }
-                },
-                builder: (context, candidateData, rejectedData) {
-                  return Container(
-                    margin: EdgeInsets.only(
-                      bottom: candidateData.isNotEmpty ? 16 : 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: candidateData.isNotEmpty ? [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ] : null,
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 48,
-                          child: Center(
-                            child: Icon(Icons.drag_indicator, color: Colors.grey),
-                          ),
-                        ),
-                        Expanded(
-                          child: TaskListTile(
-                            key: ValueKey(task.id),
-                            task: task,
-                            onTap: () => onTaskTap(task),
-                            onComplete: () => onTaskComplete(task),
-                            isDraggable: false,
-                            isHighlighted: candidateData.isNotEmpty,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+        return Draggable<Task>(
+          data: task,
+          maxSimultaneousDrags: 1,
+          dragAnchorStrategy: (draggable, context, position) {
+            final RenderBox renderBox = context.findRenderObject() as RenderBox;
+            return renderBox.globalToLocal(position);
+          },
+          feedback: Material(
+            elevation: 12.0,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width - 32,
+              child: TaskListTile(
+                key: ValueKey('drag_${task.id}'),
+                task: task,
+                onTap: () {},
+                onComplete: () {},
+                isDraggable: true,
+                isDragging: true,
               ),
             ),
-          ],
+          ),
+          childWhenDragging: SizedBox(
+            height: 72,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          child: DragTarget<Task>(
+            onWillAcceptWithDetails: (details) => details.data != task,
+            onAcceptWithDetails: (details) {
+              final taskService = context.read<TaskService>();
+              final fromIndex = taskService.tasks.indexWhere((t) => t.id == details.data.id);
+              final toIndex = taskService.tasks.indexWhere((t) => t.id == task.id);
+              
+              if (fromIndex != -1 && toIndex != -1) {
+                taskService.reorderTasks(fromIndex, toIndex);
+              }
+            },
+            builder: (context, candidateData, rejectedData) {
+              return Row(
+                children: [
+                  // Drag handle with completion bubble
+                      SizedBox(
+                        width: 40,  // Reduced width since we no longer have the bubble here
+                        child: Transform.rotate(
+                          angle: 3.14159 / 180,
+                          child: const Icon(
+                            Icons.chevron_right,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                  // Task content
+                  Expanded(
+                    child: TaskListTile(
+                      key: ValueKey(task.id),
+                      task: task,
+                      onTap: () => onTaskTap(task),
+                      onComplete: () => onTaskComplete(task),
+                      isDraggable: false,
+                      isHighlighted: candidateData.isNotEmpty,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         );
       },
+    );
+  }
+}
+
+class CompletionBubble extends StatefulWidget {
+  final bool isCompleted;
+  final Color color;
+  final VoidCallback onTap;
+
+  const CompletionBubble({
+    super.key,
+    required this.isCompleted,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<CompletionBubble> createState() => _CompletionBubbleState();
+}
+
+class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _checkAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.8).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
+        reverseCurve: const Interval(0.5, 1.0, curve: Curves.easeInOut),
+      ),
+    );
+
+    _checkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    if (widget.isCompleted) {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(CompletionBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isCompleted != oldWidget.isCompleted) {
+      if (widget.isCompleted) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        widget.onTap();
+        HapticFeedback.lightImpact();
+      },
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: widget.isCompleted ? widget.color : null,
+                border: Border.all(
+                  color: widget.color,
+                  width: 2,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: widget.isCompleted ? Center(
+                child: ScaleTransition(
+                  scale: _checkAnimation,
+                  child: const Icon(
+                    Icons.check,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ) : null,
+            ),
+          );
+        },
+      ),
     );
   }
 }
