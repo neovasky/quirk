@@ -1,31 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/models/task.dart';
 import '../../core/models/task_priority.dart';
-
-class TaskFilter {
-  final Set<TaskPriority> priorities;
-  final Set<String> categories;  // Keep as categories
-  final bool? isCompleted;
-
-  const TaskFilter({
-    this.priorities = const {},
-    this.categories = const {}, 
-    this.isCompleted,
-  });
-
-  bool matches(Task task) {
-    if (priorities.isNotEmpty && !priorities.contains(task.priority)) {
-      return false;
-    }
-    if (categories.isNotEmpty && task.project != null && !categories.contains(task.project)) {
-      return false;
-    }
-    if (isCompleted != null && task.completed != isCompleted) {
-      return false;
-    }
-    return true;
-  }
-}
+import '../../core/models/task_filter.dart';
 
 class TaskFilterDialog extends StatefulWidget {
   final TaskFilter currentFilter;
@@ -45,6 +20,7 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
   late Set<TaskPriority> _selectedPriorities;
   late Set<String> _selectedCategories;
   late bool? _selectedCompletion;
+  late bool _autoSort;
 
   @override
   void initState() {
@@ -52,6 +28,7 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
     _selectedPriorities = Set.from(widget.currentFilter.priorities);
     _selectedCategories = Set.from(widget.currentFilter.categories);
     _selectedCompletion = widget.currentFilter.isCompleted;
+    _autoSort = widget.currentFilter.autoSort;
   }
 
   @override
@@ -59,10 +36,10 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.8, // 80% of screen width
+        width: MediaQuery.of(context).size.width * 0.8,
         constraints: const BoxConstraints(
-          minWidth: 600, // Minimum width to fit all filter options
-          maxWidth: 800, // Maximum width to not be overwhelming
+          minWidth: 600,
+          maxWidth: 800,
           minHeight: 300,
           maxHeight: 500,
         ),
@@ -79,6 +56,8 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
               ),
             ),
             const SizedBox(height: 24),
+            
+            // Priority Section
             const Text('Priority', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             SizedBox(
@@ -105,7 +84,10 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                 }).toList(),
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // Projects Section
             const Text('Projects', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             if (widget.availableCategories.isEmpty)
@@ -138,7 +120,10 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                   }).toList(),
                 ),
               ),
+
             const SizedBox(height: 24),
+
+            // Status Section
             const Text('Status', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
@@ -155,7 +140,22 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                 ),
               ),
             ),
+
+            const SizedBox(height: 24),
+
+            // Auto Sort Switch
+            SwitchListTile(
+              title: const Text('Auto Sort'),
+              subtitle: const Text('Automatically sort tasks by priority and due date'),
+              value: _autoSort,
+              onChanged: (value) {
+                setState(() => _autoSort = value);
+              },
+            ),
+
             const Spacer(),
+
+            // Action Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -179,6 +179,7 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                           priorities: _selectedPriorities,
                           categories: _selectedCategories,
                           isCompleted: _selectedCompletion,
+                          autoSort: _autoSort,
                         );
                         Navigator.of(context).pop(filter);
                       },

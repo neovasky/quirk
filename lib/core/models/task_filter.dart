@@ -1,7 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'task_priority.dart';
 import 'task.dart';
 
-// Moved from dialog to be a central definition
 class TaskFilter {
   final Set<TaskPriority> priorities;
   final Set<String> categories;
@@ -52,4 +52,23 @@ class TaskFilter {
       autoSort: autoSort ?? this.autoSort,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    
+    return other is TaskFilter &&
+      setEquals(other.priorities, priorities) &&
+      setEquals(other.categories, categories) &&
+      other.isCompleted == isCompleted &&
+      other.autoSort == autoSort;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(priorities),
+    Object.hashAll(categories),
+    isCompleted,
+    autoSort,
+  );
 }

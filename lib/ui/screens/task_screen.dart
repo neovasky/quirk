@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
+import '../../core/models/task_filter.dart';
 import '../../core/services/task_service.dart';
 import '../dialogs/add_task_dialog.dart';
 import '../dialogs/task_details_dialog.dart';
