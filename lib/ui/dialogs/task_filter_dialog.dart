@@ -4,7 +4,7 @@ import '../../core/models/task_priority.dart';
 
 class TaskFilter {
   final Set<TaskPriority> priorities;
-  final Set<String> categories;
+  final Set<String> categories;  // Keep as categories
   final bool? isCompleted;
 
   const TaskFilter({
@@ -14,28 +14,15 @@ class TaskFilter {
   });
 
   bool matches(Task task) {
-    // Check priorities
     if (priorities.isNotEmpty && !priorities.contains(task.priority)) {
       return false;
     }
-
-    // Check project/categories
-    if (categories.isNotEmpty) {
-      // If categories are selected but task has no project, don't show it
-      if (task.project == null) {
-        return false;
-      }
-      // If categories are selected and task has a project, check if it matches
-      if (!categories.contains(task.project)) {
-        return false;
-      }
+    if (categories.isNotEmpty && task.project != null && !categories.contains(task.project)) {
+      return false;
     }
-
-    // Check completion status
     if (isCompleted != null && task.completed != isCompleted) {
       return false;
     }
-
     return true;
   }
 }
@@ -72,8 +59,10 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        width: 400,
+        width: MediaQuery.of(context).size.width * 0.8, // 80% of screen width
         constraints: const BoxConstraints(
+          minWidth: 600, // Minimum width to fit all filter options
+          maxWidth: 800, // Maximum width to not be overwhelming
           minHeight: 300,
           maxHeight: 500,
         ),
