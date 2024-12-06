@@ -164,27 +164,48 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _checkAnimation;
+  late Animation<double> _bounceAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.8).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
-        reverseCurve: const Interval(0.5, 1.0, curve: Curves.easeInOut),
+    // Scale down slightly then bounce back
+    _bounceAnimation = TweenSequence([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.8)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 30,
       ),
-    );
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.8, end: 1.2)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.2, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 30,
+      ),
+    ]).animate(_controller);
 
+    // Checkmark animation
     _checkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.3, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
+    // Fill color animation
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.5, curve: Curves.easeOut),
       ),
     );
 
@@ -198,7 +219,7 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
     super.didUpdateWidget(oldWidget);
     if (widget.isCompleted != oldWidget.isCompleted) {
       if (widget.isCompleted) {
-        _controller.forward();
+        _controller.forward(from: 0.0);
       } else {
         _controller.reverse();
       }
@@ -222,12 +243,14 @@ class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerPr
         animation: _controller,
         builder: (context, child) {
           return Transform.scale(
-            scale: _scaleAnimation.value,
+            scale: _bounceAnimation.value,
             child: Container(
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: widget.isCompleted ? widget.color : null,
+                color: widget.isCompleted 
+                  ? Color.lerp(null, widget.color, _scaleAnimation.value)
+                  : null,
                 border: Border.all(
                   color: widget.color,
                   width: 2,
