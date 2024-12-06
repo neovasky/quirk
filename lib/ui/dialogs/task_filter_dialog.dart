@@ -48,12 +48,25 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Filter Tasks',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Filter Tasks',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                // Auto Sort Filter Chip
+                FilterChip(
+                  label: const Text('Auto Sort'),
+                  selected: _autoSort,
+                  onSelected: (selected) {
+                    setState(() => _autoSort = selected);
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             
@@ -139,18 +152,6 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                   children: _buildStatusButtons(),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Auto Sort Switch
-            SwitchListTile(
-              title: const Text('Auto Sort'),
-              subtitle: const Text('Automatically sort tasks by priority and due date'),
-              value: _autoSort,
-              onChanged: (value) {
-                setState(() => _autoSort = value);
-              },
             ),
 
             const Spacer(),

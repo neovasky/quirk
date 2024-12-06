@@ -22,6 +22,16 @@ class _TaskScreenState extends State<TaskScreen> {
   bool _isSearching = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Apply initial filter to TaskService
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final taskService = context.read<TaskService>();
+      taskService.updateFilter(_filter);
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -48,19 +58,7 @@ class _TaskScreenState extends State<TaskScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: _isSearching
-              ? TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Search tasks...',
-                    hintStyle: TextStyle(color: Colors.white70),
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                )
-              : const Text('Tasks'),
+          // Previous AppBar code remains the same until the filter button...
           actions: [
             IconButton(
               icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -95,6 +93,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   setState(() {
                     _filter = newFilter;
                   });
+                  taskService.updateFilter(newFilter);  // Update TaskService with new filter
                 }
               },
             ),

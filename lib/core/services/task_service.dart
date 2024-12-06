@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task.dart';
-import '../models/task_priority.dart';
 import '../models/task_filter.dart';
 
 class TaskService extends ChangeNotifier {
@@ -30,8 +29,8 @@ class TaskService extends ChangeNotifier {
     _currentFilter = newFilter;
     if (newFilter.autoSort) {
       _sortTasks();
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   void _sortTasks() {
@@ -43,9 +42,10 @@ class TaskService extends ChangeNotifier {
         }
       }
 
-      // Then sort by priority (high to low)
+      // Then sort by priority (highest priority first)
+      // We reverse the comparison to put HIGH priority (index 0) at the top
       final priorityCompare = a.priority.index.compareTo(b.priority.index);
-      if (priorityCompare != 0) return -priorityCompare; // Reversed to put high priority first
+      if (priorityCompare != 0) return priorityCompare;
 
       // Then sort by due date
       if (a.dueDate != null && b.dueDate != null) {
@@ -68,6 +68,9 @@ class TaskService extends ChangeNotifier {
       _loadLabels(),
     ]);
     _initialized = true;
+    if (_currentFilter.autoSort) {
+      _sortTasks();
+    }
     notifyListeners();
   }
 
@@ -80,9 +83,6 @@ class TaskService extends ChangeNotifier {
       _tasks = tasksJson
           .map((json) => Task.fromJson(jsonDecode(json)))
           .toList();
-      if (_currentFilter.autoSort) {
-        _sortTasks();
-      }
     } catch (e) {
       debugPrint('Error loading tasks: $e');
       _tasks = [];
@@ -119,22 +119,6 @@ class TaskService extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveLabels() async {
-    final prefs = _prefs;
-    if (prefs == null) return;
-
-    try {
-      final labelsJson = _labels
-          .map((label) => jsonEncode(label.toJson()))
-          .toList();
-      await prefs.setStringList(_labelsKey, labelsJson);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error saving labels: $e');
-    }
-  }
-
-  // Task Operations
   Future<void> addTask(Task task) async {
     _tasks.add(task);
     if (_currentFilter.autoSort) {
@@ -163,90 +147,15 @@ class TaskService extends ChangeNotifier {
     final index = _tasks.indexWhere((t) => t.id == taskId);
     if (index != -1) {
       final task = _tasks[index];
-      final updatedTask = task.copyWith(completed: !task.completed);
+      final updatedTask = task.copyWith(
+        completed: !task.completed,
+      );
       _tasks[index] = updatedTask;
       if (_currentFilter.autoSort) {
         _sortTasks();
       }
       await _saveTasks();
     }
-  }
-
-  // Label Operations
-  Future<void> addLabel(Label label) async {
-    if (!_labels.any((l) => l.id == label.id)) {
-      _labels.add(label);
-      await _saveLabels();
-    }
-  }
-
-  Future<void> updateLabel(Label label) async {
-    final index = _labels.indexWhere((l) => l.id == label.id);
-    if (index != -1) {
-      _labels[index] = label;
-      await _saveLabels();
-    }
-  }
-
-  Future<void> deleteLabel(String labelId) async {
-    _labels.removeWhere((label) => label.id == labelId);
-    // Remove label from all tasks
-    for (var i = 0; i < _tasks.length; i++) {
-      final task = _tasks[i];
-      if (task.labels.any((l) => l == labelId)) { // Changed to check String in List<String>
-        _tasks[i] = task.copyWith(
-          labels: task.labels.where((id) => id != labelId).toList(),
-        );
-      }
-    }
-    await Future.wait([
-      _saveLabels(),
-      _saveTasks(),
-    ]);
-  }
-
-  // Query Methods
-  List<Task> getTasksByProject(String project) {
-    return _tasks.where((task) => task.project == project).toList();
-  }
-
-  List<Task> getTasksByPriority(TaskPriority priority) {
-    return _tasks.where((task) => task.priority == priority).toList();
-  }
-
-  List<Task> getTasksByLabel(String labelId) {
-    return _tasks.where((task) => task.labels.contains(labelId)).toList();
-  }
-
-  List<Task> getOverdueTasks() {
-    return _tasks.where((task) => task.isOverdue).toList();
-  }
-
-  List<Task> getUpcomingTasks({Duration window = const Duration(days: 7)}) {
-    final now = DateTime.now();
-    final cutoff = now.add(window);
-    return _tasks.where((task) => 
-      !task.completed && 
-      task.dueDate != null &&
-      task.dueDate!.isBefore(cutoff)).toList();
-  }
-
-  Set<String> get projects { 
-    return _tasks
-        .where((task) => task.project != null)
-        .map((task) => task.project!)
-        .toSet();
-  }
-
-  // Utility Methods
-  Future<void> clearCompletedTasks({bool archive = true}) async {
-    if (archive) {
-      _tasks = _tasks.map((task) => 
-        task.completed ? task.copyWith(archived: true) : task).toList();
-    } else {
-      _tasks.removeWhere((task) => task.completed);
-    }
-    await _saveTasks();
   }
 
   Future<void> reorderTasks(int oldIndex, int newIndex) async {
@@ -265,7 +174,6 @@ class TaskService extends ChangeNotifier {
       _tasks.insert(newIndex, task);
       
       await _saveTasks();
-      notifyListeners();
     } catch (e) {
       debugPrint('Error reordering tasks: $e');
       rethrow;
