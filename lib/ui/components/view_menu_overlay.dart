@@ -14,7 +14,7 @@ class ViewMenuController {
 
     _overlayEntry = OverlayEntry(
       builder: (context) {
-        const  menuWidth = 300.0;
+        const menuWidth = 300.0;
         const rightPadding = 16.0;
         final left = screenWidth - menuWidth - rightPadding;
 
@@ -52,13 +52,6 @@ class ViewMenuController {
   }
 }
 
-class MenuSection {
-  final String title;
-  final Widget child;
-
-  const MenuSection({required this.title, required this.child});
-}
-
 class ViewMenuOverlay extends StatefulWidget {
   final VoidCallback onClose;
 
@@ -74,7 +67,8 @@ class ViewMenuOverlay extends StatefulWidget {
 class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProviderStateMixin {
   final Set<TaskPriority> _selectedPriorities = {};
   bool _showCompleted = false;
-  String _sortBy = 'priority';
+  String _grouping = 'None';
+  String _sorting = 'Manual';
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
 
@@ -118,7 +112,97 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(theme),
-                ..._buildSections(theme),
+                
+                // View Options
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildViewOption('List', Icons.list, true),
+                      _buildViewOption('Board', Icons.view_kanban, false),
+                      _buildViewOption('Calendar', Icons.calendar_today, false),
+                    ],
+                  ),
+                ),
+                
+                const Divider(),
+                
+                // Show Completed Tasks Toggle
+                ListTile(
+                  leading: const Icon(Icons.check_circle_outline),
+                  title: const Text('Completed tasks'),
+                  trailing: Switch(
+                    value: _showCompleted,
+                    onChanged: (value) {
+                      setState(() => _showCompleted = value);
+                    },
+                  ),
+                ),
+                
+                const Divider(),
+                
+                // Sort By Section
+                _buildSection('Sort by', [
+                  ListTile(
+                    leading: const Icon(Icons.sort),
+                    title: const Text('Grouping'),
+                    trailing: DropdownButton<String>(
+                      value: _grouping,
+                      items: ['None', 'Priority', 'Due Date'].map((option) {
+                        return DropdownMenuItem(
+                          value: option,
+                          child: Text(option),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _grouping = value);
+                        }
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.sort),
+                    title: const Text('Sorting'),
+                    trailing: DropdownButton<String>(
+                      value: _sorting,
+                      items: ['Manual', 'Due Date', 'Priority'].map((option) {
+                        return DropdownMenuItem(
+                          value: option,
+                          child: Text(option),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _sorting = value);
+                        }
+                      },
+                    ),
+                  ),
+                ]),
+                
+                const Divider(),
+                
+                // Filter By Section
+                _buildSection('Filter by', [
+                  ListTile(
+                    leading: const Icon(Icons.calendar_today),
+                    title: const Text('Due date'),
+                    trailing: const Text('All'),
+                    onTap: () {
+                      // Handle due date filter
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.flag),
+                    title: const Text('Priority'),
+                    trailing: const Text('All'),
+                    onTap: () {
+                      // Handle priority filter
+                    },
+                  ),
+                ]),
               ],
             ),
           ),
@@ -160,115 +244,92 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
     );
   }
 
-  List<Widget> _buildSections(ThemeData theme) {
-    final sections = [
-      MenuSection(
-        title: 'Filter by Priority',
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: TaskPriority.values.map((priority) {
-            return FilterChip(
-              label: Text(priority.name.toUpperCase()),
-              selected: _selectedPriorities.contains(priority),
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedPriorities.add(priority);
-                  } else {
-                    _selectedPriorities.remove(priority);
-                  }
-                });
-              },
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              selectedColor: priority.color.withOpacity(0.2),
-              labelStyle: TextStyle(
-                color: _selectedPriorities.contains(priority)
-                  ? priority.color
-                  : theme.colorScheme.onSurface,
-              ),
-              showCheckmark: false,
-            );
-          }).toList(),
-        ),
+  Widget _buildViewOption(String label, IconData icon, bool selected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
+        borderRadius: BorderRadius.circular(8),
       ),
-      MenuSection(
-        title: 'Sort by',
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _buildSortOption('Priority', 'priority', Icons.flag_outlined, theme),
-            _buildSortOption('Due Date', 'dueDate', Icons.calendar_today_outlined, theme),
-            _buildSortOption('Created', 'created', Icons.access_time_outlined, theme),
-          ],
-        ),
+      child: Column(
+        children: [
+          Icon(icon),
+          const SizedBox(height: 4),
+          Text(label),
+        ],
       ),
-      MenuSection(
-        title: 'Visibility',
-        child: SwitchListTile(
-          title: const Text('Show Completed Tasks'),
-          value: _showCompleted,
-          onChanged: (value) {
-            setState(() => _showCompleted = value);
-          },
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-        ),
-      ),
-    ];
+    );
+  }
 
-    return sections.map((section) {
+  Widget _buildSection(String title, List<Widget> children) {
+    if (title == 'Filter by') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.all(16),
             child: Text(
-              section.title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: theme.colorScheme.onSurfaceVariant,
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: section.child,
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: const Text('Due date'),
+            trailing: const Text('All'),
+            onTap: () {
+              // Handle due date filter
+            },
           ),
-          if (section != sections.last)
-            Divider(
-              height: 1,
-              color: theme.colorScheme.outlineVariant,
+          // Priority filter with chips
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Priority'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: TaskPriority.values.map((priority) {
+                    return FilterChip(
+                      label: Text(priority.name),
+                      selected: _selectedPriorities.contains(priority),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedPriorities.add(priority);
+                          } else {
+                            _selectedPriorities.remove(priority);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
+          ),
         ],
       );
-    }).toList();
-  }
-
-  Widget _buildSortOption(String label, String value, IconData icon, ThemeData theme) {
-    final isSelected = _sortBy == value;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: isSelected
-              ? theme.colorScheme.onSecondaryContainer
-              : theme.colorScheme.onSurfaceVariant,
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
-      ),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) {
-          setState(() => _sortBy = value);
-        }
-      },
+        ),
+        ...children,
+      ],
     );
   }
 }
