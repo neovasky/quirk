@@ -119,11 +119,12 @@ class _TaskListState extends State<TaskList> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                CompletionBubble(
-                                  isCompleted: task.status == TaskStatus.completed,
-                                  color: task.statusColor,
-                                  onTap: () => widget.onTaskComplete(task),
-                                ),
+                                  CompletionBubble(
+                                    isCompleted: task.status == TaskStatus.completed,
+                                    // Use priority color instead of status color
+                                    color: task.priority.color,  // Make sure TaskPriority enum has color property
+                                    onTap: () => widget.onTaskComplete(task),
+                                  ),
                               ],
                             ),
                           ),

@@ -19,44 +19,34 @@ class TaskService extends ChangeNotifier {
     _initPrefs();
   }
 
-  List<Task> get tasks {
-    // First, filter the tasks based on current filter
-    var filteredTasks = _tasks.where(_currentFilter.matches).toList();
-    
-    // If auto-sort is enabled and we haven't manually reordered
-    if (_currentFilter.autoSort && !_isManuallyOrdered) {
-      // First sort by status
-      filteredTasks.sort((a, b) {
-        final statusComparison = a.status.index.compareTo(b.status.index);
-        if (statusComparison != 0) return statusComparison;
-        
-        // Then sort by priority (HIGH = 0 should come first)
-        final priorityComparison = a.priority.index.compareTo(b.priority.index);
-        if (priorityComparison != 0) return priorityComparison;
-        
-        // Then by due date if exists
-        if (a.dueDate != null && b.dueDate != null) {
-          return a.dueDate!.compareTo(b.dueDate!);
-        } else if (a.dueDate != null) {
-          return -1;
-        } else if (b.dueDate != null) {
-          return 1;
-        }
-        
-        // Finally by creation date (newest first)
-        return b.createdAt.compareTo(a.createdAt);
-      });
-    } else if (_isManuallyOrdered && _manualOrder.isNotEmpty) {
-      // Apply manual ordering
-      filteredTasks.sort((a, b) {
-        final orderA = _manualOrder[a.id] ?? 999999;
-        final orderB = _manualOrder[b.id] ?? 999999;
-        return orderA.compareTo(orderB);
-      });
-    }
-    
-    return List.unmodifiable(filteredTasks);
+List<Task> get tasks {
+  // First, filter the tasks based on current filter
+  var filteredTasks = _tasks.where(_currentFilter.matches).toList();
+  
+  // If auto-sort is enabled and we haven't manually reordered
+  if (_currentFilter.autoSort && !_isManuallyOrdered) {
+    // First sort by priority (HIGH = 0 should come first)
+    filteredTasks.sort((a, b) {
+      // Primary sort by priority
+      final priorityComparison = a.priority.index.compareTo(b.priority.index);
+      if (priorityComparison != 0) return priorityComparison;
+      
+      // Then by due date if exists
+      if (a.dueDate != null && b.dueDate != null) {
+        return a.dueDate!.compareTo(b.dueDate!);
+      } else if (a.dueDate != null) {
+        return -1;
+      } else if (b.dueDate != null) {
+        return 1;
+      }
+      
+      // Finally by creation date (newest first)
+      return b.createdAt.compareTo(a.createdAt);
+    });
   }
+  
+  return List.unmodifiable(filteredTasks);
+}
 
   List<Task> get completedTasks => 
     tasks.where((task) => task.status == TaskStatus.completed).toList();

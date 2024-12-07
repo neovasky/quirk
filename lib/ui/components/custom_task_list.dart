@@ -98,7 +98,7 @@ class _CustomTaskListState extends State<CustomTaskList> {
                     trailing: IconButton(
                       icon: Icon(
                         task.status == TaskStatus.completed ? Icons.check_circle : Icons.circle_outlined,
-                        color: task.statusColor,
+
                       ),
                       onPressed: () => widget.onTaskComplete(task),
                     ),
