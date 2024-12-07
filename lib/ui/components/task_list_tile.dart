@@ -24,6 +24,7 @@ class TaskListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isCompleted = task.status == TaskStatus.completed;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -42,8 +43,8 @@ class TaskListTile extends StatelessWidget {
           child: Row(
             children: [
               CompletionBubble(
-                isCompleted: task.completed,
-                color: task.priorityColor,
+                isCompleted: isCompleted,
+                color: task.priority.color,
                 onComplete: onComplete,
               ),
               const SizedBox(width: 16),
@@ -57,8 +58,8 @@ class TaskListTile extends StatelessWidget {
                           child: Text(
                             task.name,
                             style: theme.textTheme.bodyLarge?.copyWith(
-                              decoration: task.completed ? TextDecoration.lineThrough : null,
-                              color: task.completed ? theme.colorScheme.onSurface.withOpacity(0.6) : null,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              color: isCompleted ? theme.colorScheme.onSurface.withOpacity(0.6) : null,
                             ),
                           ),
                         ),

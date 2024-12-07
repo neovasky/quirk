@@ -24,6 +24,7 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
   late DateTime? _dueDate;
   late TimeOfDay? _dueTime;
   late DateTime? _actionDate;
+  late TaskStatus _status;
   late RecurrenceInterval _recurrence;
 
   @override
@@ -43,6 +44,7 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     _notesController.text = widget.task.notes ?? '';
     _recurrence = widget.task.recurrence;
     _selectedLabels.addAll(widget.task.labels);
+    _status = widget.task.status;
   }
 
   @override
@@ -60,12 +62,12 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  if (widget.task.completed)
+                  if (_status == TaskStatus.completed)
                     const Icon(Icons.check_circle, color: Colors.green, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      widget.task.completed ? 'Completed Task' : 'Edit Task',
+                      _getStatusTitle(_status),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -95,6 +97,28 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
                         labelText: 'Task Name',
                         border: OutlineInputBorder(),
                       ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    
+                    // Status selection
+                    DropdownButtonFormField<TaskStatus>(
+                      decoration: const InputDecoration(
+                        labelText: 'Status',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: _status,
+                      items: TaskStatus.values.map((status) {
+                        return DropdownMenuItem(
+                          value: status,
+                          child: Text(_getStatusText(status)),
+                        );
+                      }).toList(),
+                      onChanged: (status) {
+                        if (status != null) {
+                          setState(() => _status = status);
+                        }
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -273,6 +297,36 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     );
   }
 
+  String _getStatusTitle(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.completed:
+        return 'Completed Task';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.onHold:
+        return 'Task On Hold';
+      case TaskStatus.cancelled:
+        return 'Cancelled Task';
+      case TaskStatus.todo:
+        return 'Edit Task';
+    }
+  }
+
+  String _getStatusText(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.completed:
+        return 'Completed';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.onHold:
+        return 'On Hold';
+      case TaskStatus.cancelled:
+        return 'Cancelled';
+      case TaskStatus.todo:
+        return 'To Do';
+    }
+  }
+
   String _getRecurrenceText(RecurrenceInterval interval) {
     switch (interval) {
       case RecurrenceInterval.none:
@@ -294,7 +348,7 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     }
   }
 
-Future<void> _confirmDelete(BuildContext context) async {
+  Future<void> _confirmDelete(BuildContext context) async {
     // Store the navigator in a local variable before async gap
     final navigator = Navigator.of(context);
     
@@ -355,6 +409,7 @@ Future<void> _confirmDelete(BuildContext context) async {
       actionDate: _actionDate,
       notes: _notesController.text,
       recurrence: _recurrence,
+      status: _status,
     );
     
     Navigator.of(context).pop(task);

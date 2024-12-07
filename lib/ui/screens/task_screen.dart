@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
 import '../../core/models/task_filter.dart';
@@ -113,7 +112,7 @@ class _TaskScreenState extends State<TaskScreen> {
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Active'),
-              Tab(text: 'Archive'),
+              Tab(text: 'Completed & Archived'),
             ],
           ),
         ),
@@ -124,53 +123,27 @@ class _TaskScreenState extends State<TaskScreen> {
                 // Active Tasks
                 _TaskList(
                   tasks: _filterTasks(
-                    taskService.tasks.where((t) => !t.archived).toList()
+                    taskService.tasks.where((t) => 
+                      t.status != TaskStatus.completed && 
+                      t.status != TaskStatus.cancelled
+                    ).toList()
                   ),
-                  onTaskTap: (task) async {
-                    final result = await showDialog<dynamic>(
-                      context: context,
-                      builder: (context) => TaskDetailsDialog(task: task),
-                    );
-
-                    if (result == 'delete') {
-                      if (!context.mounted) return;
-                      taskService.deleteTask(task.id);
-                    } else if (result is Task) {
-                      if (!context.mounted) return;
-                      taskService.updateTask(result);
-                    }
-                  },
-                  onTaskComplete: (task) {
-                    final updatedTask = task.copyWith(
-                      completed: !task.completed,
-                      archived: !task.completed,
-                    );
-                    taskService.updateTask(updatedTask);
-                  },
+                  onTaskTap: (task) => _handleTaskTap(context, task, taskService),
+                  onTaskComplete: (task) => _handleTaskCompletion(task, taskService),
                 ),
-                // Archived Tasks
+                // Completed & Cancelled Tasks
                 _TaskList(
                   tasks: _filterTasks(
-                    taskService.tasks.where((t) => t.archived).toList()
+                    taskService.tasks.where((t) => 
+                      t.status == TaskStatus.completed || 
+                      t.status == TaskStatus.cancelled
+                    ).toList()
                   ),
-                  onTaskTap: (task) async {
-                    final result = await showDialog<dynamic>(
-                      context: context,
-                      builder: (context) => TaskDetailsDialog(task: task),
-                    );
-
-                    if (result == 'delete') {
-                      if (!context.mounted) return;
-                      taskService.deleteTask(task.id);
-                    } else if (result is Task) {
-                      if (!context.mounted) return;
-                      taskService.updateTask(result);
-                    }
-                  },
+                  onTaskTap: (task) => _handleTaskTap(context, task, taskService),
                   onTaskComplete: (task) {
+                    // Reset status to todo when uncompleting a task
                     final updatedTask = task.copyWith(
-                      completed: false,
-                      archived: false,
+                      status: TaskStatus.todo,
                     );
                     taskService.updateTask(updatedTask);
                   },
@@ -195,6 +168,31 @@ class _TaskScreenState extends State<TaskScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleTaskTap(BuildContext context, Task task, TaskService taskService) async {
+    final result = await showDialog<dynamic>(
+      context: context,
+      builder: (context) => TaskDetailsDialog(task: task),
+    );
+
+    if (result == 'delete') {
+      if (!mounted) return;
+      taskService.deleteTask(task.id);
+    } else if (result is Task) {
+      if (!mounted) return;
+      taskService.updateTask(result);
+    }
+  }
+
+  void _handleTaskCompletion(Task task, TaskService taskService) {
+    // Toggle between todo and completed
+    final newStatus = task.status == TaskStatus.completed 
+        ? TaskStatus.todo 
+        : TaskStatus.completed;
+        
+    final updatedTask = task.copyWith(status: newStatus);
+    taskService.updateTask(updatedTask);
   }
 }
 
@@ -266,19 +264,17 @@ class _TaskList extends StatelessWidget {
             builder: (context, candidateData, rejectedData) {
               return Row(
                 children: [
-                  // Drag handle with completion bubble
-                      SizedBox(
-                        width: 40,  // Reduced width since we no longer have the bubble here
-                        child: Transform.rotate(
-                          angle: 3.14159 / 180,
-                          child: const Icon(
-                            Icons.chevron_right,
-                            size: 20,
-                            color: Colors.grey,
-                          ),
-                        ),
+                  SizedBox(
+                    width: 40,
+                    child: Transform.rotate(
+                      angle: 3.14159 / 180,
+                      child: const Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: Colors.grey,
                       ),
-                  // Task content
+                    ),
+                  ),
                   Expanded(
                     child: TaskListTile(
                       key: ValueKey(task.id),
@@ -295,114 +291,6 @@ class _TaskList extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class CompletionBubble extends StatefulWidget {
-  final bool isCompleted;
-  final Color color;
-  final VoidCallback onTap;
-
-  const CompletionBubble({
-    super.key,
-    required this.isCompleted,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  State<CompletionBubble> createState() => _CompletionBubbleState();
-}
-
-class _CompletionBubbleState extends State<CompletionBubble> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _checkAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.8).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
-        reverseCurve: const Interval(0.5, 1.0, curve: Curves.easeInOut),
-      ),
-    );
-
-    _checkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    if (widget.isCompleted) {
-      _controller.value = 1.0;
-    }
-  }
-
-  @override
-  void didUpdateWidget(CompletionBubble oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isCompleted != oldWidget.isCompleted) {
-      if (widget.isCompleted) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        widget.onTap();
-        HapticFeedback.lightImpact();
-      },
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: widget.isCompleted ? widget.color : null,
-                border: Border.all(
-                  color: widget.color,
-                  width: 2,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: widget.isCompleted ? Center(
-                child: ScaleTransition(
-                  scale: _checkAnimation,
-                  child: const Icon(
-                    Icons.check,
-                    size: 12,
-                    color: Colors.white,
-                  ),
-                ),
-              ) : null,
-            ),
-          );
-        },
-      ),
     );
   }
 }

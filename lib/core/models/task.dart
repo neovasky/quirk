@@ -12,6 +12,14 @@ enum RecurrenceInterval {
   annually,
 }
 
+enum TaskStatus {
+  todo,      // Not started
+  inProgress,// Currently being worked on
+  completed, // Done
+  onHold,    // Temporarily paused
+  cancelled  // Won't be done
+}
+
 class Label {
   final String id;
   final String name;
@@ -80,8 +88,7 @@ class Task {
   final DateTime? dueDate;  
   final DateTime? actionDate;
   final String? notes;
-  final bool completed;
-  final bool archived;
+  final TaskStatus status;
   final Duration? actualDuration;
   final RecurrenceInterval recurrence;
   final DateTime? startTime;
@@ -100,8 +107,7 @@ class Task {
     this.dueDate,
     this.actionDate,
     this.notes,
-    this.completed = false,
-    this.archived = false,
+    this.status = TaskStatus.todo,
     this.actualDuration,
     this.recurrence = RecurrenceInterval.none,
     this.startTime,
@@ -112,7 +118,10 @@ class Task {
     createdAt = createdAt ?? DateTime.now();
 
   bool get isOverdue {
-    return dueDate != null && !completed && dueDate!.isBefore(DateTime.now());
+    return dueDate != null && 
+           status != TaskStatus.completed && 
+           status != TaskStatus.cancelled && 
+           dueDate!.isBefore(DateTime.now());
   }
 
   bool get isStartingSoon {
@@ -124,25 +133,46 @@ class Task {
   
   double get progress {
     if (subtasks == null || subtasks!.isEmpty) {
-      return completed ? 1.0 : 0.0;
+      return status == TaskStatus.completed ? 1.0 : 0.0;
     }
-    final completedSubtasks = subtasks!.where((task) => task.completed).length;
+    final completedSubtasks = subtasks!.where((task) => task.status == TaskStatus.completed).length;
     return completedSubtasks / subtasks!.length;
   }
 
-  Duration get timeSpent {
-    return actualDuration ?? const Duration();
-  }
-
-  Color get priorityColor => priority.color;
+  Duration get timeSpent => actualDuration ?? const Duration();
   
   Color get statusColor {
-    if (completed) return Colors.green;
-    if (isOverdue) return Colors.red;
-    return priorityColor;
+    switch (status) {
+      case TaskStatus.completed:
+        return Colors.green;
+      case TaskStatus.onHold:
+        return Colors.orange;
+      case TaskStatus.cancelled:
+        return Colors.grey;
+      case TaskStatus.inProgress:
+        return Colors.blue;
+      case TaskStatus.todo:
+        return isOverdue ? Colors.red : priority.color;
+    }
   }
 
   factory Task.fromJson(Map<String, dynamic> json) {
+    // Convert legacy completed/archived to TaskStatus
+    TaskStatus derivedStatus = TaskStatus.todo;
+    
+    if (json.containsKey('status')) {
+      derivedStatus = TaskStatus.values[json['status'] as int];
+    } else {
+      final bool isCompleted = json['completed'] as bool? ?? false;
+      final bool isArchived = json['archived'] as bool? ?? false;
+      
+      if (isCompleted) {
+        derivedStatus = TaskStatus.completed;
+      } else if (isArchived) {
+        derivedStatus = TaskStatus.cancelled;
+      }
+    }
+
     return Task(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -155,8 +185,7 @@ class Task {
       dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
       actionDate: json['actionDate'] != null ? DateTime.parse(json['actionDate']) : null,
       notes: json['notes'] as String?,
-      completed: json['completed'] ?? false,
-      archived: json['archived'] ?? false,
+      status: derivedStatus,
       actualDuration: json['actualDuration'] != null 
         ? Duration(seconds: json['actualDuration']) 
         : null,
@@ -183,8 +212,7 @@ class Task {
       'dueDate': dueDate?.toIso8601String(),
       'actionDate': actionDate?.toIso8601String(),
       'notes': notes,
-      'completed': completed,
-      'archived': archived, 
+      'status': status.index,
       'actualDuration': actualDuration?.inSeconds,
       'recurrence': recurrence.index,
       'startTime': startTime?.toIso8601String(),
@@ -203,8 +231,7 @@ class Task {
     DateTime? dueDate,
     DateTime? actionDate,
     String? notes,
-    bool? completed,
-    bool? archived,
+    TaskStatus? status,
     Duration? actualDuration,
     RecurrenceInterval? recurrence,
     DateTime? startTime,
@@ -222,8 +249,7 @@ class Task {
       dueDate: dueDate ?? this.dueDate,
       actionDate: actionDate ?? this.actionDate,
       notes: notes ?? this.notes,
-      completed: completed ?? this.completed,
-      archived: archived ?? this.archived,
+      status: status ?? this.status,
       actualDuration: actualDuration ?? this.actualDuration,
       recurrence: recurrence ?? this.recurrence,
       startTime: startTime ?? this.startTime,

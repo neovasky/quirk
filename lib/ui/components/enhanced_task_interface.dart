@@ -66,18 +66,19 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
   }
 
   Widget _buildTaskCard(Task task, bool isSelected, bool isDragging, {bool isDropTarget = false}) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final isCompleted = task.status == TaskStatus.completed;
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: isDragging ? 8 : isSelected ? 2 : 1,
-      color: task.isOverdue && !task.completed
+      color: task.isOverdue && task.status != TaskStatus.completed
           ? Colors.red.withOpacity(0.1)
-          : colorScheme.surface,
+          : theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isDropTarget
-            ? BorderSide(color: colorScheme.primary, width: 2)
+            ? BorderSide(color: theme.colorScheme.primary, width: 2)
             : BorderSide.none,
       ),
       child: InkWell(
@@ -108,12 +109,12 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: task.priorityColor,
+                          color: task.statusColor,
                           width: 2,
                         ),
                       ),
-                      child: task.completed
-                          ? Icon(Icons.check, size: 18, color: task.priorityColor)
+                      child: task.status == TaskStatus.completed
+                          ? Icon(Icons.check, size: 18, color: task.statusColor)
                           : null,
                     ),
                     onPressed: () => widget.onTaskComplete(task),
@@ -124,8 +125,8 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
                       task.name,
                       style: TextStyle(
                         fontSize: 18,
-                        decoration: task.completed ? TextDecoration.lineThrough : null,
-                        color: task.completed ? Colors.grey : null,
+                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        color: isCompleted ? Colors.grey : null,
                       ),
                     ),
                   ),

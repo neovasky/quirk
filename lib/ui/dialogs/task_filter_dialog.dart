@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/task_priority.dart';
+import '../../core/models/task.dart';
 import '../../core/models/task_filter.dart';
 
 class TaskFilterDialog extends StatefulWidget {
@@ -19,7 +20,7 @@ class TaskFilterDialog extends StatefulWidget {
 class _TaskFilterDialogState extends State<TaskFilterDialog> {
   late Set<TaskPriority> _selectedPriorities;
   late Set<String> _selectedCategories;
-  late bool? _selectedCompletion;
+  late Set<TaskStatus> _selectedStatuses;
   late bool _autoSort;
 
   @override
@@ -27,7 +28,7 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
     super.initState();
     _selectedPriorities = Set.from(widget.currentFilter.priorities);
     _selectedCategories = Set.from(widget.currentFilter.categories);
-    _selectedCompletion = widget.currentFilter.isCompleted;
+    _selectedStatuses = Set.from(widget.currentFilter.statuses);
     _autoSort = widget.currentFilter.autoSort;
   }
 
@@ -58,7 +59,6 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                // Auto Sort Filter Chip
                 FilterChip(
                   label: const Text('Auto Sort'),
                   selected: _autoSort,
@@ -89,6 +89,36 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                             _selectedPriorities.add(priority);
                           } else {
                             _selectedPriorities.remove(priority);
+                          }
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Status Section
+            const Text('Status', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: TaskStatus.values.map((status) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(_getStatusText(status)),
+                      selected: _selectedStatuses.contains(status),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedStatuses.add(status);
+                          } else {
+                            _selectedStatuses.remove(status);
                           }
                         });
                       },
@@ -134,26 +164,6 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                 ),
               ),
 
-            const SizedBox(height: 24),
-
-            // Status Section
-            const Text('Status', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Container(
-              height: 40,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Row(
-                  children: _buildStatusButtons(),
-                ),
-              ),
-            ),
-
             const Spacer(),
 
             // Action Buttons
@@ -179,7 +189,7 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
                         final filter = TaskFilter(
                           priorities: _selectedPriorities,
                           categories: _selectedCategories,
-                          isCompleted: _selectedCompletion,
+                          statuses: _selectedStatuses,
                           autoSort: _autoSort,
                         );
                         Navigator.of(context).pop(filter);
@@ -196,39 +206,18 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
     );
   }
 
-  List<Widget> _buildStatusButtons() {
-    final buttonData = [
-      (label: 'All', value: null),
-      (label: 'Pending', value: false),
-      (label: 'Completed', value: true),
-    ];
-
-    return buttonData.map((data) {
-      final isSelected = _selectedCompletion == data.value;
-      return Expanded(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => setState(() => _selectedCompletion = data.value),
-            child: Container(
-              height: double.infinity,
-              decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Colors.transparent,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (isSelected) ...[
-                    const Icon(Icons.check, size: 16),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(data.label),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }).toList();
+  String _getStatusText(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.todo:
+        return 'To Do';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.completed:
+        return 'Completed';
+      case TaskStatus.onHold:
+        return 'On Hold';
+      case TaskStatus.cancelled:
+        return 'Cancelled';
+    }
   }
 }

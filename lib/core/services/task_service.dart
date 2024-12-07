@@ -6,9 +6,7 @@ import '../models/task_filter.dart';
 
 class TaskService extends ChangeNotifier {
   static const String _storageKey = 'tasks';
-  static const String _labelsKey = 'labels';
-  List<Task> _tasks = [];
-  List<Label> _labels = [];
+  final List<Task> _tasks = [];
   SharedPreferences? _prefs;
   bool _initialized = false;
   TaskFilter _currentFilter = const TaskFilter();
@@ -19,9 +17,8 @@ class TaskService extends ChangeNotifier {
 
   // Getters
   List<Task> get tasks => List.unmodifiable(_tasks);
-  List<Task> get completedTasks => _tasks.where((task) => task.completed).toList();
-  List<Task> get pendingTasks => _tasks.where((task) => !task.completed).toList();
-  List<Label> get labels => List.unmodifiable(_labels);
+  List<Task> get completedTasks => _tasks.where((task) => task.status == TaskStatus.completed).toList();
+  List<Task> get pendingTasks => _tasks.where((task) => task.status != TaskStatus.completed).toList();
   bool get isInitialized => _initialized;
   TaskFilter get currentFilter => _currentFilter;
 
@@ -35,17 +32,23 @@ class TaskService extends ChangeNotifier {
 
   void _sortTasks() {
     _tasks.sort((a, b) {
-      // First sort by completion status if needed
-      if (_currentFilter.isCompleted != null) {
-        if (a.completed != b.completed) {
-          return a.completed ? 1 : -1;
+      // First sort by status if filtered
+      if (_currentFilter.statuses.isNotEmpty) {
+        final aStatusIndex = a.status.index;
+        final bStatusIndex = b.status.index;
+        if (aStatusIndex != bStatusIndex) {
+          return aStatusIndex.compareTo(bStatusIndex);
         }
       }
 
-      // Then sort by priority (highest priority first)
-      // We reverse the comparison to put HIGH priority (index 0) at the top
-      final priorityCompare = a.priority.index.compareTo(b.priority.index);
-      if (priorityCompare != 0) return priorityCompare;
+      // Then sort by priority if filtered
+      if (_currentFilter.priorities.isNotEmpty) {
+        final aPriorityIndex = a.priority.index;
+        final bPriorityIndex = b.priority.index;
+        if (aPriorityIndex != bPriorityIndex) {
+          return aPriorityIndex.compareTo(bPriorityIndex);
+        }
+      }
 
       // Then sort by due date
       if (a.dueDate != null && b.dueDate != null) {
@@ -56,7 +59,7 @@ class TaskService extends ChangeNotifier {
         return 1;
       }
 
-      // Finally sort by creation date (newer first)
+      // Finally sort by creation date
       return b.createdAt.compareTo(a.createdAt);
     });
   }
@@ -65,7 +68,6 @@ class TaskService extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     await Future.wait([
       _loadTasks(),
-      _loadLabels(),
     ]);
     _initialized = true;
     if (_currentFilter.autoSort) {
@@ -80,27 +82,12 @@ class TaskService extends ChangeNotifier {
 
     try {
       final tasksJson = prefs.getStringList(_storageKey) ?? [];
-      _tasks = tasksJson
-          .map((json) => Task.fromJson(jsonDecode(json)))
-          .toList();
+      _tasks.clear();
+      _tasks.addAll(
+        tasksJson.map((json) => Task.fromJson(jsonDecode(json))).toList()
+      );
     } catch (e) {
       debugPrint('Error loading tasks: $e');
-      _tasks = [];
-    }
-  }
-
-  Future<void> _loadLabels() async {
-    final prefs = _prefs;
-    if (prefs == null) return;
-
-    try {
-      final labelsJson = prefs.getStringList(_labelsKey) ?? [];
-      _labels = labelsJson
-          .map((json) => Label.fromJson(jsonDecode(json)))
-          .toList();
-    } catch (e) {
-      debugPrint('Error loading labels: $e');
-      _labels = [];
     }
   }
 
@@ -141,21 +128,6 @@ class TaskService extends ChangeNotifier {
   Future<void> deleteTask(String taskId) async {
     _tasks.removeWhere((task) => task.id == taskId);
     await _saveTasks();
-  }
-
-  Future<void> toggleTaskCompletion(String taskId) async {
-    final index = _tasks.indexWhere((t) => t.id == taskId);
-    if (index != -1) {
-      final task = _tasks[index];
-      final updatedTask = task.copyWith(
-        completed: !task.completed,
-      );
-      _tasks[index] = updatedTask;
-      if (_currentFilter.autoSort) {
-        _sortTasks();
-      }
-      await _saveTasks();
-    }
   }
 
   Future<void> reorderTasks(int oldIndex, int newIndex) async {

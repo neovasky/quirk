@@ -27,8 +27,8 @@ class _CustomTaskListState extends State<CustomTaskList> {
     return Consumer<TaskService>(
       builder: (context, taskService, child) {
         final filteredTasks = widget.showCompleted
-            ? widget.tasks.where((task) => task.completed).toList()
-            : widget.tasks.where((task) => !task.completed).toList();
+            ? widget.tasks.where((task) => task.status == TaskStatus.completed).toList()
+            : widget.tasks.where((task) => task.status != TaskStatus.completed).toList();
 
         if (filteredTasks.isEmpty) {
           return Center(
@@ -91,14 +91,14 @@ class _CustomTaskListState extends State<CustomTaskList> {
                     title: Text(
                       task.name,
                       style: TextStyle(
-                        decoration: task.completed ? TextDecoration.lineThrough : null,
+                        decoration: task.status == TaskStatus.completed ? TextDecoration.lineThrough : null,
                       ),
                     ),
                     subtitle: _buildSubtitle(context, task),
                     trailing: IconButton(
                       icon: Icon(
-                        task.completed ? Icons.check_circle : Icons.circle_outlined,
-                        color: task.priorityColor,
+                        task.status == TaskStatus.completed ? Icons.check_circle : Icons.circle_outlined,
+                        color: task.statusColor,
                       ),
                       onPressed: () => widget.onTaskComplete(task),
                     ),
