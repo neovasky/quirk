@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/models/task_priority.dart';
+import '../../core/services/task_service.dart';
 
 class ViewMenuController {
   OverlayEntry? _overlayEntry;
@@ -65,10 +67,10 @@ class ViewMenuOverlay extends StatefulWidget {
 }
 
 class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProviderStateMixin {
+  // State variables
   final Set<TaskPriority> _selectedPriorities = {};
   bool _showCompleted = false;
-  String _grouping = 'None';
-  String _sorting = 'Manual';
+  String _grouping = 'None';  // Removed final to allow changes
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
 
@@ -128,6 +130,33 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
                 
                 const Divider(),
                 
+                // Auto Sort Button
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Consumer<TaskService>(
+                        builder: (context, taskService, _) => OutlinedButton(
+                          onPressed: () => taskService.resetToAutoSort(),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(40),
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Auto Sort',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                const Divider(),
+                
                 // Show Completed Tasks Toggle
                 ListTile(
                   leading: const Icon(Icons.check_circle_outline),
@@ -162,24 +191,6 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
                       },
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.sort),
-                    title: const Text('Sorting'),
-                    trailing: DropdownButton<String>(
-                      value: _sorting,
-                      items: ['Manual', 'Due Date', 'Priority'].map((option) {
-                        return DropdownMenuItem(
-                          value: option,
-                          child: Text(option),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _sorting = value);
-                        }
-                      },
-                    ),
-                  ),
                 ]),
                 
                 const Divider(),
@@ -194,13 +205,34 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
                       // Handle due date filter
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.flag),
-                    title: const Text('Priority'),
-                    trailing: const Text('All'),
-                    onTap: () {
-                      // Handle priority filter
-                    },
+                  // Priority filter with chips
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Priority'),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: TaskPriority.values.map((priority) {
+                            return FilterChip(
+                              label: Text(priority.name),
+                              selected: _selectedPriorities.contains(priority),
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedPriorities.add(priority);
+                                  } else {
+                                    _selectedPriorities.remove(priority);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
                   ),
                 ]),
               ],
@@ -262,60 +294,6 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
   }
 
   Widget _buildSection(String title, List<Widget> children) {
-    if (title == 'Filter by') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_today),
-            title: const Text('Due date'),
-            trailing: const Text('All'),
-            onTap: () {
-              // Handle due date filter
-            },
-          ),
-          // Priority filter with chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Priority'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: TaskPriority.values.map((priority) {
-                    return FilterChip(
-                      label: Text(priority.name),
-                      selected: _selectedPriorities.contains(priority),
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedPriorities.add(priority);
-                          } else {
-                            _selectedPriorities.remove(priority);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

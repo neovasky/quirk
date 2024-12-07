@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
 import '../../core/services/task_service.dart';
+import 'task_list_tile.dart';
 
 class TaskList extends StatefulWidget {
   final List<Task> tasks;
@@ -47,87 +48,99 @@ class _TaskListState extends State<TaskList> {
           itemBuilder: (context, index) {
             final task = filteredTasks[index];
             
-            // Make each task draggable
-            return Draggable<int>(
-              // Pass the index as data
-              data: index,
-              
-              // What the user sees while dragging
+            return Draggable<Task>(
+              data: task,
+              maxSimultaneousDrags: 1,
+              dragAnchorStrategy: pointerDragAnchorStrategy,
               feedback: Material(
                 elevation: 8.0,
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width - 32,
-                  child: ListTile(
-                    leading: const Icon(Icons.drag_indicator, color: Colors.grey),
-                    title: Text(
-                      task.name,
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        fontSize: 16,
-                      ),
-                    ),
+                  child: TaskListTile(
+                    task: task,
+                    onTap: () {},
+                    onComplete: () {},
+                    isDraggable: true,
+                    isDragging: true,
                   ),
                 ),
               ),
-              
-              // What appears in the original location while dragging
-              childWhenDragging: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ListTile(
-                  title: Text(
-                    task.name,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
+              childWhenDragging: Opacity(
+                opacity: 0.5,
+                child: TaskListTile(
+                  task: task,
+                  onTap: () {},
+                  onComplete: () {},
+                  isDraggable: false,
                 ),
               ),
-              
-              // The normal task display
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: ListTile(
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
+              child: DragTarget<Task>(
+                onWillAcceptWithDetails: (details) => details.data != task,
+                onAcceptWithDetails: (details) {
+                  final incomingTask = details.data;
+                  final fromIndex = filteredTasks.indexWhere((t) => t.id == incomingTask.id);
+                  final toIndex = filteredTasks.indexWhere((t) => t.id == task.id);
+                  
+                  if (fromIndex != -1 && toIndex != -1) {
+                    final fullTaskList = taskService.tasks;
+                    final actualFromIndex = fullTaskList.indexWhere((t) => t.id == incomingTask.id);
+                    final actualToIndex = fullTaskList.indexWhere((t) => t.id == task.id);
+                    taskService.reorderTasks(actualFromIndex, actualToIndex);
+                  }
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return Column(
                     children: [
-                      const Icon(Icons.drag_indicator, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: Icon(
-                          task.status == TaskStatus.completed ? Icons.check_circle : Icons.circle_outlined,
-                          color: task.statusColor,
+                      if (candidateData.isNotEmpty)
+                        Container(
+                          height: 2,
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                        onPressed: () => widget.onTaskComplete(task),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Transform.rotate(
+                                  angle: 0.0, // No rotation initially
+                                  child: Transform(
+                                    alignment: Alignment.center,
+                                    transform: Matrix4.rotationZ(0.0)
+                                      ..rotateY(3.14159), // Rotate around Y-axis instead
+                                    child: const Icon(
+                                      Icons.expand_more,
+                                      size: 20,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                CompletionBubble(
+                                  isCompleted: task.status == TaskStatus.completed,
+                                  color: task.statusColor,
+                                  onTap: () => widget.onTaskComplete(task),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: TaskListTile(
+                              task: task,
+                              onTap: () => widget.onTaskTap(task),
+                              onComplete: () => widget.onTaskComplete(task),
+                              isDraggable: false,
+                              isHighlighted: candidateData.isNotEmpty,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                  title: Text(
-                    task.name,
-                    style: TextStyle(
-                      decoration: task.status == TaskStatus.completed ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  subtitle: _buildSubtitle(context, task),
-                  trailing: task.isOverdue && task.status == TaskStatus.todo
-                      ? const Icon(Icons.warning, color: Colors.red)
-                      : null,
-                  onTap: () => widget.onTaskTap(task),
-                ),
+                  );
+                },
               ),
             );
           },
@@ -135,46 +148,43 @@ class _TaskListState extends State<TaskList> {
       },
     );
   }
+}
 
-  Widget _buildSubtitle(BuildContext context, Task task) {
-    final List<String> subtitleParts = [];
-    
-    if (task.project != null) {
-      subtitleParts.add(task.project!);
-    }
-    
-    if (task.dueDate != null) {
-      subtitleParts.add('Due: ${_formatDate(task.dueDate!)}');
-    }
+class CompletionBubble extends StatelessWidget {
+  final bool isCompleted;
+  final Color color;
+  final VoidCallback onTap;
 
-    if (task.duration.inMinutes > 0) {
-      subtitleParts.add('${task.duration.inMinutes}min');
-    }
+  const CompletionBubble({
+    super.key,
+    required this.isCompleted,
+    required this.color,
+    required this.onTap,
+  });
 
-    if (subtitleParts.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Text(
-      subtitleParts.join(' • '),
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: color,
+            width: 2,
           ),
+          color: isCompleted ? color : Colors.transparent,
+        ),
+        child: isCompleted
+            ? const Icon(
+                Icons.check,
+                size: 14,
+                color: Colors.white,
+              )
+            : null,
+      ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = date.difference(now).inDays;
-
-    if (difference == 0) {
-      return 'Today';
-    } else if (difference == 1) {
-      return 'Tomorrow';
-    } else if (difference == -1) {
-      return 'Yesterday';
-    }
-
-    return '${date.month}/${date.day}/${date.year}';
   }
 }

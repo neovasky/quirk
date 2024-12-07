@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import '../../core/models/task_priority.dart';
-import '../../core/models/task.dart';
+import 'task_priority.dart';
+import 'task.dart';
 
 class TaskFilter {
   final Set<TaskPriority> priorities;
@@ -16,24 +16,48 @@ class TaskFilter {
   });
 
   bool matches(Task task) {
-    // Priority filter
     if (priorities.isNotEmpty && !priorities.contains(task.priority)) {
       return false;
     }
 
-    // Category/project filter
     if (categories.isNotEmpty) {
       if (task.project == null || !categories.contains(task.project)) {
         return false;
       }
     }
 
-    // Status filter
     if (statuses.isNotEmpty && !statuses.contains(task.status)) {
       return false;
     }
 
     return true;
+  }
+
+  List<Task> sortTasks(List<Task> tasks) {
+    if (!autoSort) return tasks;
+
+    return List<Task>.from(tasks)..sort((a, b) {
+      // First sort by status
+      final statusComparison = a.status.index.compareTo(b.status.index);
+      if (statusComparison != 0) return statusComparison;
+
+      // Sort by priority (HIGH to LOW)
+      // Changed the comparison order to put highest priority first
+      final priorityComparison = a.priority.index.compareTo(b.priority.index);
+      if (priorityComparison != 0) return priorityComparison;
+
+      // Then by due date (soonest first)
+      if (a.dueDate != null && b.dueDate != null) {
+        return a.dueDate!.compareTo(b.dueDate!);
+      } else if (a.dueDate != null) {
+        return -1;
+      } else if (b.dueDate != null) {
+        return 1;
+      }
+
+      // Finally by creation date (newest first)
+      return b.createdAt.compareTo(a.createdAt);
+    });
   }
 
   TaskFilter copyWith({
@@ -49,17 +73,6 @@ class TaskFilter {
       autoSort: autoSort ?? this.autoSort,
     );
   }
-
-  // Helper methods for common filters
-  static const TaskFilter activeOnly = TaskFilter(
-    statuses: {TaskStatus.todo, TaskStatus.inProgress, TaskStatus.onHold},
-  );
-
-  static const TaskFilter completedOnly = TaskFilter(
-    statuses: {TaskStatus.completed},
-  );
-
-  static const TaskFilter allTasks = TaskFilter();
 
   @override
   bool operator ==(Object other) {

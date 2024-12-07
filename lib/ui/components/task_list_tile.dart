@@ -1,7 +1,7 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/models/task.dart';
+import 'dart:math' show pi, cos, sin;
 
 class TaskListTile extends StatelessWidget {
   final Task task;
@@ -39,15 +39,9 @@ class TaskListTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Row(
             children: [
-              CompletionBubble(
-                isCompleted: isCompleted,
-                color: task.priority.color,
-                onComplete: onComplete,
-              ),
-              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

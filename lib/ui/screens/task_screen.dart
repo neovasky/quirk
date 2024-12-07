@@ -141,10 +141,7 @@ class _TaskScreenState extends State<TaskScreen> {
                   ),
                   onTaskTap: (task) => _handleTaskTap(context, task, taskService),
                   onTaskComplete: (task) {
-                    // Reset status to todo when uncompleting a task
-                    final updatedTask = task.copyWith(
-                      status: TaskStatus.todo,
-                    );
+                    final updatedTask = task.copyWith(status: TaskStatus.todo);
                     taskService.updateTask(updatedTask);
                   },
                 ),
@@ -186,7 +183,6 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   void _handleTaskCompletion(Task task, TaskService taskService) {
-    // Toggle between todo and completed
     final newStatus = task.status == TaskStatus.completed 
         ? TaskStatus.todo 
         : TaskStatus.completed;
@@ -195,6 +191,8 @@ class _TaskScreenState extends State<TaskScreen> {
     taskService.updateTask(updatedTask);
   }
 }
+
+// Inside _TaskList class in task_screen.dart
 
 class _TaskList extends StatelessWidget {
   final List<Task> tasks;
@@ -221,10 +219,7 @@ class _TaskList extends StatelessWidget {
         return Draggable<Task>(
           data: task,
           maxSimultaneousDrags: 1,
-          dragAnchorStrategy: (draggable, context, position) {
-            final RenderBox renderBox = context.findRenderObject() as RenderBox;
-            return renderBox.globalToLocal(position);
-          },
+          dragAnchorStrategy: pointerDragAnchorStrategy,
           feedback: Material(
             elevation: 12.0,
             borderRadius: BorderRadius.circular(8),
@@ -240,50 +235,76 @@ class _TaskList extends StatelessWidget {
               ),
             ),
           ),
-          childWhenDragging: SizedBox(
-            height: 72,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
+          childWhenDragging: Opacity(
+            opacity: 0.5,
+            child: TaskListTile(
+              key: ValueKey('placeholder_${task.id}'),
+              task: task,
+              onTap: () {},
+              onComplete: () {},
+              isDraggable: false,
             ),
           ),
           child: DragTarget<Task>(
             onWillAcceptWithDetails: (details) => details.data != task,
             onAcceptWithDetails: (details) {
+              final incomingTask = details.data;
               final taskService = context.read<TaskService>();
-              final fromIndex = taskService.tasks.indexWhere((t) => t.id == details.data.id);
-              final toIndex = taskService.tasks.indexWhere((t) => t.id == task.id);
+              final fromIndex = tasks.indexWhere((t) => t.id == incomingTask.id);
+              final toIndex = tasks.indexWhere((t) => t.id == task.id);
               
               if (fromIndex != -1 && toIndex != -1) {
-                taskService.reorderTasks(fromIndex, toIndex);
+                final fullTaskList = taskService.tasks;
+                final actualFromIndex = fullTaskList.indexWhere((t) => t.id == incomingTask.id);
+                final actualToIndex = fullTaskList.indexWhere((t) => t.id == task.id);
+                taskService.reorderTasks(actualFromIndex, actualToIndex);
               }
             },
             builder: (context, candidateData, rejectedData) {
-              return Row(
+              return Column(
                 children: [
-                  SizedBox(
-                    width: 40,
-                    child: Transform.rotate(
-                      angle: 3.14159 / 180,
-                      child: const Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: Colors.grey,
+                  if (candidateData.isNotEmpty)
+                    Container(
+                      height: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  Row(
+                    children: [
+                      // Arrow and completion status section
+                      SizedBox(
+                        width: 80,
+                        child: Row(
+                          children: [
+                            Transform.rotate(
+                              angle: 3.14159 / 180, // Rotates chevron to point right
+                              child: const Icon(
+                                Icons.chevron_right,
+                                size: 20,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            CompletionBubble(
+                              isCompleted: task.status == TaskStatus.completed,
+                              color: task.statusColor,
+                              onComplete: () => onTaskComplete(task),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: TaskListTile(
-                      key: ValueKey(task.id),
-                      task: task,
-                      onTap: () => onTaskTap(task),
-                      onComplete: () => onTaskComplete(task),
-                      isDraggable: false,
-                      isHighlighted: candidateData.isNotEmpty,
-                    ),
+                      // Task tile
+                      Expanded(
+                        child: TaskListTile(
+                          key: ValueKey(task.id),
+                          task: task,
+                          onTap: () => onTaskTap(task),
+                          onComplete: () => onTaskComplete(task),
+                          isDraggable: false,
+                          isHighlighted: candidateData.isNotEmpty,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               );
