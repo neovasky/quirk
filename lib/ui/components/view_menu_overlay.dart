@@ -5,22 +5,23 @@ class ViewMenuController {
   OverlayEntry? _overlayEntry;
   bool isOpen = false;
 
-  void show(BuildContext context, GlobalKey buttonKey) {
+  void show(BuildContext context, GlobalKey buttonKey, {
+    required ValueNotifier<bool> showCompletedTasks,
+  }) {
     if (isOpen) return;
 
     final RenderBox buttonBox = buttonKey.currentContext!.findRenderObject() as RenderBox;
     final buttonPosition = buttonBox.localToGlobal(Offset.zero);
     final screenWidth = MediaQuery.of(context).size.width;
 
+    const menuWidth = 300.0;
+    const rightPadding = 16.0;
+    final left = screenWidth - menuWidth - rightPadding;
+
     _overlayEntry = OverlayEntry(
       builder: (context) {
-        const  menuWidth = 300.0;
-        const rightPadding = 16.0;
-        final left = screenWidth - menuWidth - rightPadding;
-
         return Stack(
           children: [
-            // Backdrop
             Positioned.fill(
               child: GestureDetector(
                 onTap: hide,
@@ -28,12 +29,12 @@ class ViewMenuController {
                 child: Container(color: Colors.black12),
               ),
             ),
-            // Menu
             Positioned(
               top: buttonPosition.dy + buttonBox.size.height + 8,
               left: left,
               child: ViewMenuOverlay(
                 onClose: hide,
+                showCompletedTasks: showCompletedTasks,
               ),
             ),
           ],
@@ -52,49 +53,42 @@ class ViewMenuController {
   }
 }
 
-class MenuSection {
-  final String title;
-  final Widget child;
-
-  const MenuSection({required this.title, required this.child});
+class _ViewMenuState {
+  final ValueNotifier<String> sortBy = ValueNotifier<String>('priority');
+  final ValueNotifier<Set<TaskPriority>> selectedPriorities = ValueNotifier<Set<TaskPriority>>({});
+  
+  void dispose() {
+    sortBy.dispose();
+    selectedPriorities.dispose();
+  }
 }
 
 class ViewMenuOverlay extends StatefulWidget {
   final VoidCallback onClose;
+  final ValueNotifier<bool> showCompletedTasks;
 
   const ViewMenuOverlay({
     super.key,
     required this.onClose,
+    required this.showCompletedTasks,
   });
 
   @override
   State<ViewMenuOverlay> createState() => _ViewMenuOverlayState();
 }
 
-class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProviderStateMixin {
-  final Set<TaskPriority> _selectedPriorities = {};
-  bool _showCompleted = false;
-  String _sortBy = 'priority';
-  late final AnimationController _animationController;
-  late final Animation<double> _fadeAnimation;
+class _ViewMenuOverlayState extends State<ViewMenuOverlay> {
+  late final _ViewMenuState _state;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    );
-    _animationController.forward();
+    _state = _ViewMenuState();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _state.dispose();
     super.dispose();
   }
 
@@ -102,26 +96,32 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surface,
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          width: 300,
-          constraints: const BoxConstraints(maxHeight: 500),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(theme),
-                ..._buildSections(theme),
-              ],
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(12),
+      color: theme.colorScheme.surface,
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: 300,
+        constraints: const BoxConstraints(maxHeight: 500),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHeader(theme),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFilterSection('Filter by Priority'),
+                    _buildSortSection(),
+                    _buildVisibilitySection(),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -129,13 +129,12 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
 
   Widget _buildHeader(ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant,
-            width: 1,
+            color: theme.dividerColor,
           ),
         ),
       ),
@@ -160,115 +159,100 @@ class _ViewMenuOverlayState extends State<ViewMenuOverlay> with SingleTickerProv
     );
   }
 
-  List<Widget> _buildSections(ThemeData theme) {
-    final sections = [
-      MenuSection(
-        title: 'Filter by Priority',
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: TaskPriority.values.map((priority) {
-            return FilterChip(
-              label: Text(priority.name.toUpperCase()),
-              selected: _selectedPriorities.contains(priority),
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedPriorities.add(priority);
-                  } else {
-                    _selectedPriorities.remove(priority);
-                  }
-                });
-              },
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              selectedColor: priority.color.withOpacity(0.2),
-              labelStyle: TextStyle(
-                color: _selectedPriorities.contains(priority)
-                  ? priority.color
-                  : theme.colorScheme.onSurface,
-              ),
-              showCheckmark: false,
-            );
-          }).toList(),
-        ),
-      ),
-      MenuSection(
-        title: 'Sort by',
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _buildSortOption('Priority', 'priority', Icons.flag_outlined, theme),
-            _buildSortOption('Due Date', 'dueDate', Icons.calendar_today_outlined, theme),
-            _buildSortOption('Created', 'created', Icons.access_time_outlined, theme),
-          ],
-        ),
-      ),
-      MenuSection(
-        title: 'Visibility',
-        child: SwitchListTile(
-          title: const Text('Show Completed Tasks'),
-          value: _showCompleted,
-          onChanged: (value) {
-            setState(() => _showCompleted = value);
-          },
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-        ),
-      ),
-    ];
-
-    return sections.map((section) {
-      return Column(
+  Widget _buildFilterSection(String title) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              section.title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+          Text(title),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: TaskPriority.values.map((priority) {
+              return ValueListenableBuilder<Set<TaskPriority>>(
+                valueListenable: _state.selectedPriorities,
+                builder: (context, priorities, _) {
+                  return FilterChip(
+                    label: Text(priority.name.toUpperCase()),
+                    selected: priorities.contains(priority),
+                    onSelected: (selected) {
+                      final newPriorities = Set<TaskPriority>.from(priorities);
+                      if (selected) {
+                        newPriorities.add(priority);
+                      } else {
+                        newPriorities.remove(priority);
+                      }
+                      _state.selectedPriorities.value = newPriorities;
+                    },
+                  );
+                },
+              );
+            }).toList(),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: section.child,
-          ),
-          if (section != sections.last)
-            Divider(
-              height: 1,
-              color: theme.colorScheme.outlineVariant,
-            ),
-        ],
-      );
-    }).toList();
-  }
-
-  Widget _buildSortOption(String label, String value, IconData icon, ThemeData theme) {
-    final isSelected = _sortBy == value;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: isSelected
-              ? theme.colorScheme.onSecondaryContainer
-              : theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Text(label),
         ],
       ),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) {
-          setState(() => _sortBy = value);
-        }
-      },
+    );
+  }
+
+  Widget _buildSortSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Sort by'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              'Priority',
+              'Due Date',
+              'Created',
+            ].map((option) {
+              return ValueListenableBuilder<String>(
+                valueListenable: _state.sortBy,
+                builder: (context, currentSort, _) {
+                  return ChoiceChip(
+                    label: Text(option),
+                    selected: currentSort.toLowerCase() == option.toLowerCase(),
+                    onSelected: (selected) {
+                      if (selected) {
+                        _state.sortBy.value = option.toLowerCase();
+                      }
+                    },
+                  );
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisibilitySection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Show Completed Tasks'),
+          ValueListenableBuilder<bool>(
+            valueListenable: widget.showCompletedTasks,
+            builder: (context, value, _) {
+              return Switch(
+                value: value,
+                onChanged: (newValue) {
+                  widget.showCompletedTasks.value = newValue;
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

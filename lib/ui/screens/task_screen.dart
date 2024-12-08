@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
-import '../../core/models/task_filter.dart';
 import '../../core/services/task_service.dart';
 import '../components/task_list_tile.dart';
 import '../dialogs/add_task_dialog.dart';
 import '../dialogs/task_details_dialog.dart';
-import '../dialogs/task_filter_dialog.dart';
+import '../components/view_menu_overlay.dart';
 
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -16,177 +15,73 @@ class TaskScreen extends StatefulWidget {
 }
 
 class _TaskScreenState extends State<TaskScreen> {
-  TaskFilter _filter = const TaskFilter();
   final TextEditingController _searchController = TextEditingController();
+  final GlobalKey _viewMenuButtonKey = GlobalKey();
+  final ViewMenuController _viewMenuController = ViewMenuController();
   bool _isSearching = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Apply initial filter to TaskService
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final taskService = context.read<TaskService>();
-      taskService.updateFilter(_filter);
-    });
-  }
+  bool _isSidebarOpen = false;
+  ValueNotifier<bool> showCompletedTasks = ValueNotifier<bool>(false);
 
   @override
   void dispose() {
     _searchController.dispose();
+    showCompletedTasks.dispose();
     super.dispose();
   }
 
   List<Task> _filterTasks(List<Task> tasks) {
-    if (_searchController.text.isEmpty) {
-      return tasks.where((task) => _filter.matches(task)).toList();
-    }
+    List<Task> filteredTasks = showCompletedTasks.value 
+        ? tasks 
+        : tasks.where((t) => t.status != TaskStatus.completed).toList();
+
+    if (_searchController.text.isEmpty) return filteredTasks;
     
     final query = _searchController.text.toLowerCase();
-    return tasks.where((task) {
-      final matchesFilter = _filter.matches(task);
+    return filteredTasks.where((task) {
       final titleMatch = task.name.toLowerCase().contains(query);
       final projectMatch = task.project?.toLowerCase().contains(query) ?? false;
       final notesMatch = task.notes?.toLowerCase().contains(query) ?? false;
-      return matchesFilter && (titleMatch || projectMatch || notesMatch);
+      return titleMatch || projectMatch || notesMatch;
     }).toList();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: _isSearching
-              ? TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Search tasks...',
-                    hintStyle: TextStyle(color: Colors.white70),
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                )
-              : const Text('Tasks'),
-          actions: [
-            IconButton(
-              icon: Icon(_isSearching ? Icons.close : Icons.search),
-              onPressed: () {
-                setState(() {
-                  if (_isSearching) {
-                    _searchController.clear();
-                  }
-                  _isSearching = !_isSearching;
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: () async {
-                final taskService = context.read<TaskService>();
-                final projects = taskService.tasks
-                    .where((t) => t.project != null)
-                    .map((t) => t.project!)
-                    .toSet()
-                    .toList();
-                
-                final newFilter = await showDialog<TaskFilter>(
-                  context: context,
-                  builder: (context) => TaskFilterDialog(
-                    currentFilter: _filter,
-                    availableCategories: projects,
-                  ),
-                );
-
-                if (newFilter != null) {
-                  setState(() {
-                    _filter = newFilter;
-                  });
-                  taskService.updateFilter(newFilter);
-                }
-              },
-            ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Active'),
-              Tab(text: 'Completed & Archived'),
-            ],
-          ),
-        ),
-        body: Consumer<TaskService>(
-          builder: (context, taskService, child) {
-            return TabBarView(
-              children: [
-                // Active Tasks
-                _TaskList(
-                  tasks: _filterTasks(
-                    taskService.tasks.where((t) => 
-                      t.status != TaskStatus.completed && 
-                      t.status != TaskStatus.cancelled
-                    ).toList()
-                  ),
-                  onTaskTap: (task) => _handleTaskTap(context, task, taskService),
-                  onTaskComplete: (task) => _handleTaskCompletion(task, taskService),
-                ),
-                // Completed & Cancelled Tasks
-                _TaskList(
-                  tasks: _filterTasks(
-                    taskService.tasks.where((t) => 
-                      t.status == TaskStatus.completed || 
-                      t.status == TaskStatus.cancelled
-                    ).toList()
-                  ),
-                  onTaskTap: (task) => _handleTaskTap(context, task, taskService),
-                  onTaskComplete: (task) {
-                    // Reset status to todo when uncompleting a task
-                    final updatedTask = task.copyWith(
-                      status: TaskStatus.todo,
-                    );
-                    taskService.updateTask(updatedTask);
-                  },
-                ),
-              ],
-            );
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            final taskService = context.read<TaskService>();
-            final task = await showDialog<Task>(
-              context: context,
-              builder: (context) => const AddTaskDialog(),
-            );
-            
-            if (task != null && mounted) {
-              taskService.addTask(task);
-            }
-          },
-          child: const Icon(Icons.add),
-        ),
-      ),
+  Future<void> _handleAddTask(BuildContext context) async {
+    // Store both context and service before async operation
+    final currentContext = context;
+    final taskService = currentContext.read<TaskService>();
+    
+    final task = await showDialog<Task>(
+      context: currentContext,
+      builder: (context) => const AddTaskDialog(),
     );
+
+    // First check if widget is mounted
+    if (!mounted) return;
+
+    // Then check if we have a task to add
+    if (task != null) {
+      taskService.addTask(task);
+    }
   }
 
   Future<void> _handleTaskTap(BuildContext context, Task task, TaskService taskService) async {
+    final currentContext = context;
+    
     final result = await showDialog<dynamic>(
-      context: context,
+      context: currentContext,
       builder: (context) => TaskDetailsDialog(task: task),
     );
 
+    if (!mounted) return;
+
     if (result == 'delete') {
-      if (!mounted) return;
       taskService.deleteTask(task.id);
     } else if (result is Task) {
-      if (!mounted) return;
       taskService.updateTask(result);
     }
   }
 
   void _handleTaskCompletion(Task task, TaskService taskService) {
-    // Toggle between todo and completed
     final newStatus = task.status == TaskStatus.completed 
         ? TaskStatus.todo 
         : TaskStatus.completed;
@@ -194,17 +89,158 @@ class _TaskScreenState extends State<TaskScreen> {
     final updatedTask = task.copyWith(status: newStatus);
     taskService.updateTask(updatedTask);
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: _isSidebarOpen ? 250 : 0,
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            child: Icon(Icons.person),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Account'),
+                                Text('Email', style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.add),
+                      title: const Text('Add Task'),
+                      onTap: () => _handleAddTask(context),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.inbox),
+                      title: const Text('Inbox'),
+                      onTap: () {}, // Implement inbox navigation
+                    ),
+                    const Divider(),
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Favorite Projects', 
+                        style: TextStyle(color: Colors.grey)),
+                    ),
+                    const Spacer(),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.settings),
+                      title: const Text('Settings'),
+                      onTap: () {}, // Implement settings navigation
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                AppBar(
+                  leading: IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () {
+                      setState(() => _isSidebarOpen = !_isSidebarOpen);
+                    },
+                  ),
+                  title: _isSearching
+                      ? TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          decoration: const InputDecoration(
+                            hintText: 'Search tasks...',
+                            border: InputBorder.none,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        )
+                      : const Text('Tasks'),
+                  actions: [
+                    IconButton(
+                      icon: Icon(_isSearching ? Icons.close : Icons.search),
+                      onPressed: () {
+                        setState(() {
+                          if (_isSearching) {
+                            _searchController.clear();
+                          }
+                          _isSearching = !_isSearching;
+                        });
+                      },
+                    ),
+                    IconButton(
+                      key: _viewMenuButtonKey,
+                      icon: const Icon(Icons.more_vert),
+                      onPressed: () {
+                        _viewMenuController.show(
+                          context, 
+                          _viewMenuButtonKey,
+                          showCompletedTasks: showCompletedTasks,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: Consumer<TaskService>(
+                    builder: (context, taskService, child) {
+                      return ValueListenableBuilder<bool>(
+                        valueListenable: showCompletedTasks,
+                        builder: (context, showCompleted, child) {
+                          return _TaskList(
+                            tasks: _filterTasks(taskService.tasks),
+                            onTaskTap: (task) => _handleTaskTap(context, task, taskService),
+                            onTaskComplete: (task) => _handleTaskCompletion(task, taskService),
+                            onReorder: taskService.reorderTasks,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _handleAddTask(context),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
 }
 
 class _TaskList extends StatelessWidget {
   final List<Task> tasks;
   final Function(Task) onTaskTap;
   final Function(Task) onTaskComplete;
+  final Function(int, int) onReorder;
 
   const _TaskList({
     required this.tasks,
     required this.onTaskTap,
     required this.onTaskComplete,
+    required this.onReorder,
   });
 
   @override
