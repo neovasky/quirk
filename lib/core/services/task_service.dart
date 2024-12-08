@@ -41,12 +41,12 @@ class TaskService extends ChangeNotifier {
         }
       }
 
-      // Then sort by priority if filtered
+      // Then sort by priority if filtered (reversed for HIGH to LOW)
       if (_currentFilter.priorities.isNotEmpty) {
         final aPriorityIndex = a.priority.index;
         final bPriorityIndex = b.priority.index;
         if (aPriorityIndex != bPriorityIndex) {
-          return aPriorityIndex.compareTo(bPriorityIndex);
+          return bPriorityIndex.compareTo(aPriorityIndex);  // Reversed comparison
         }
       }
 
@@ -100,7 +100,7 @@ class TaskService extends ChangeNotifier {
           .map((task) => jsonEncode(task.toJson()))
           .toList();
       await prefs.setStringList(_storageKey, tasksJson);
-      notifyListeners();
+      notifyListeners();  // Ensure UI is updated
     } catch (e) {
       debugPrint('Error saving tasks: $e');
     }
@@ -122,6 +122,7 @@ class TaskService extends ChangeNotifier {
         _sortTasks();
       }
       await _saveTasks();
+      notifyListeners();  // Additional notification for immediate UI update
     }
   }
 

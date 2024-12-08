@@ -132,18 +132,14 @@ class _TaskScreenState extends State<TaskScreen> {
     }
   }
 
-    void _handleTaskCompletion(Task task, TaskService taskService) {
-      final newStatus = task.status == TaskStatus.completed 
-          ? TaskStatus.todo 
-          : TaskStatus.completed;
-          
-      final updatedTask = task.copyWith(status: newStatus);
-      
-      // Use post-frame callback to avoid setState during build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        taskService.updateTask(updatedTask);
-      });
-    }
+  void _handleTaskCompletion(Task task, TaskService taskService) {
+    final newStatus = task.status == TaskStatus.completed 
+        ? TaskStatus.todo 
+        : TaskStatus.completed;
+        
+    final updatedTask = task.copyWith(status: newStatus);
+    taskService.updateTask(updatedTask);
+  }
 
   void _handleReorder(TaskService taskService, int fromIndex, int toIndex) {
     taskService.reorderTasks(fromIndex, toIndex);
@@ -387,7 +383,7 @@ class _TaskList extends StatelessWidget {
                   ),
                   Expanded(
                     child: TaskListTile(
-                      key: ValueKey('${task.id}_${task.status}'),
+                      key: ValueKey(task.id),
                       task: task,
                       onTap: () => onTaskTap(task),
                       onComplete: () => onTaskComplete(task),
