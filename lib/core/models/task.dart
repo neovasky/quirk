@@ -1,3 +1,5 @@
+//task.dart
+
 import 'package:flutter/material.dart';
 import 'task_priority.dart';
 
@@ -13,11 +15,39 @@ enum RecurrenceInterval {
 }
 
 enum TaskStatus {
-  todo,      // Not started
-  inProgress,// Currently being worked on
-  completed, // Done
-  onHold,    // Temporarily paused
-  cancelled  // Won't be done
+  todo,          // Not started
+  inProgress,    // Currently being worked on
+  completedVisible,  // Completed and shown in the list
+  completedHidden,   // Completed but hidden from the list
+  onHold,        // Temporarily paused
+  cancelled      // Won't be done
+}
+
+extension TaskStatusHelpers on TaskStatus {
+  bool get isCompleted => 
+    this == TaskStatus.completedVisible || 
+    this == TaskStatus.completedHidden;
+  
+  bool get isVisible =>
+    this != TaskStatus.completedHidden;
+    
+  TaskStatus toggleCompletion(bool showCompleted) {
+    if (isCompleted) {
+      return TaskStatus.todo;
+    } else {
+      return showCompleted ? 
+        TaskStatus.completedVisible : 
+        TaskStatus.completedHidden;
+    }
+  }
+  
+  TaskStatus updateVisibility(bool showCompleted) {
+    if (!isCompleted) return this;
+    
+    return showCompleted ? 
+      TaskStatus.completedVisible : 
+      TaskStatus.completedHidden;
+  }
 }
 
 class Label {
@@ -119,7 +149,7 @@ class Task {
 
   bool get isOverdue {
     return dueDate != null && 
-           status != TaskStatus.completed && 
+           !status.isCompleted && 
            status != TaskStatus.cancelled && 
            dueDate!.isBefore(DateTime.now());
   }
@@ -133,9 +163,9 @@ class Task {
   
   double get progress {
     if (subtasks == null || subtasks!.isEmpty) {
-      return status == TaskStatus.completed ? 1.0 : 0.0;
+      return status.isCompleted ? 1.0 : 0.0;
     }
-    final completedSubtasks = subtasks!.where((task) => task.status == TaskStatus.completed).length;
+    final completedSubtasks = subtasks!.where((task) => task.status.isCompleted).length;
     return completedSubtasks / subtasks!.length;
   }
 
@@ -143,7 +173,8 @@ class Task {
   
   Color get statusColor {
     switch (status) {
-      case TaskStatus.completed:
+      case TaskStatus.completedVisible:
+      case TaskStatus.completedHidden:
         return Colors.green;
       case TaskStatus.onHold:
         return Colors.orange;
@@ -157,22 +188,6 @@ class Task {
   }
 
   factory Task.fromJson(Map<String, dynamic> json) {
-    // Convert legacy completed/archived to TaskStatus
-    TaskStatus derivedStatus = TaskStatus.todo;
-    
-    if (json.containsKey('status')) {
-      derivedStatus = TaskStatus.values[json['status'] as int];
-    } else {
-      final bool isCompleted = json['completed'] as bool? ?? false;
-      final bool isArchived = json['archived'] as bool? ?? false;
-      
-      if (isCompleted) {
-        derivedStatus = TaskStatus.completed;
-      } else if (isArchived) {
-        derivedStatus = TaskStatus.cancelled;
-      }
-    }
-
     return Task(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -185,7 +200,7 @@ class Task {
       dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
       actionDate: json['actionDate'] != null ? DateTime.parse(json['actionDate']) : null,
       notes: json['notes'] as String?,
-      status: derivedStatus,
+      status: TaskStatus.values[json['status'] ?? 0],
       actualDuration: json['actualDuration'] != null 
         ? Duration(seconds: json['actualDuration']) 
         : null,
@@ -258,7 +273,6 @@ class Task {
     );
   }
 }
-
 
 class TaskComment {
   final String id;

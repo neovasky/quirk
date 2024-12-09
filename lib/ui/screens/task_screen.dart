@@ -1,8 +1,3 @@
-// BROKEN CODE FOR task_screen.dart
-// Dragging works, No Striking on Completion
-
-
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
@@ -42,8 +37,10 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   List<Task> _filterTasks(List<Task> tasks) {
-    // Create a modifiable copy of the tasks list
     List<Task> filteredTasks = List<Task>.from(tasks);
+
+    // Filter out hidden tasks
+    filteredTasks = filteredTasks.where((task) => task.status != TaskStatus.completedHidden).toList();
 
     // Apply priority filters if any are selected
     if (selectedPriorities.value.isNotEmpty) {
@@ -56,10 +53,10 @@ class _TaskScreenState extends State<TaskScreen> {
     if (!isManualSort.value) {
       filteredTasks.sort((a, b) {
         // Always put completed tasks at the bottom
-        if (a.status == TaskStatus.completed && b.status != TaskStatus.completed) {
+        if (a.status.isCompleted && !b.status.isCompleted) {
           return 1;
         }
-        if (a.status != TaskStatus.completed && b.status == TaskStatus.completed) {
+        if (!a.status.isCompleted && b.status.isCompleted) {
           return -1;
         }
 
@@ -78,11 +75,6 @@ class _TaskScreenState extends State<TaskScreen> {
             return 0;
         }
       });
-    }
-
-    // Filter completed tasks if not showing them
-    if (!showCompletedTasks.value) {
-      filteredTasks = filteredTasks.where((t) => t.status != TaskStatus.completed).toList();
     }
 
     // Apply search filter if text exists
@@ -133,20 +125,28 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
 
-      void _handleTaskCompletion(Task task, TaskService taskService) {
-        final newStatus = task.status == TaskStatus.completed 
-            ? TaskStatus.todo 
-            : TaskStatus.completed;
-            
-        final updatedTask = task.copyWith(status: newStatus);
-        taskService.updateTask(updatedTask);
-      }
+  void _handleTaskCompletion(Task task, TaskService taskService) {
+    final showCompleted = showCompletedTasks.value;
+    final newStatus = task.status.toggleCompletion(showCompleted);
+    final updatedTask = task.copyWith(status: newStatus);
+    taskService.updateTask(updatedTask);
+  }
 
   void _handleReorder(TaskService taskService, int fromIndex, int toIndex) {
     taskService.reorderTasks(fromIndex, toIndex);
     // Switch to manual sorting when user reorders
     isManualSort.value = true;
     sortBy.value = 'manual';
+  }
+
+  void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted) {
+    final tasks = taskService.tasks.where((task) => task.status.isCompleted);
+    for (var task in tasks) {
+      final updatedTask = task.copyWith(
+        status: task.status.updateVisibility(showCompleted)
+      );
+      taskService.updateTask(updatedTask);
+    }
   }
 
   @override
@@ -267,6 +267,7 @@ class _TaskScreenState extends State<TaskScreen> {
                       return ValueListenableBuilder<bool>(
                         valueListenable: showCompletedTasks,
                         builder: (context, showCompleted, child) {
+                        _toggleCompletedTasksVisibility(taskService, showCompleted);
                           return ValueListenableBuilder<String>(
                             valueListenable: sortBy,
                             builder: (context, currentSort, child) {

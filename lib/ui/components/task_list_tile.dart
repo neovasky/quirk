@@ -11,9 +11,8 @@ class TaskListTile extends StatelessWidget {
   final bool isDragging;
   final bool isHighlighted;
 
-  // Fix the constructor to use only one key
   const TaskListTile({
-    super.key,  // Keep the regular key parameter
+    super.key,
     required this.task,
     required this.onTap,
     required this.onComplete,
@@ -25,7 +24,7 @@ class TaskListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isCompleted = task.status == TaskStatus.completed;
+    final isCompleted = task.status.isCompleted;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -59,9 +58,8 @@ class TaskListTile extends StatelessWidget {
                           child: Text(
                             task.name,
                             style: theme.textTheme.bodyLarge?.copyWith(
-                              decoration: task.status == TaskStatus.completed ? 
-                                TextDecoration.lineThrough : null,
-                              color: task.status == TaskStatus.completed ? 
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              color: isCompleted ? 
                                 theme.colorScheme.onSurface.withOpacity(0.6) : null,
                             ),
                           ),

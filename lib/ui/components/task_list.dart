@@ -26,9 +26,10 @@ class _TaskListState extends State<TaskList> {
   Widget build(BuildContext context) {
     return Consumer<TaskService>(
       builder: (context, taskService, child) {
-        final filteredTasks = widget.showCompleted
-            ? widget.tasks.where((task) => task.status == TaskStatus.completed).toList()
-            : widget.tasks.where((task) => task.status != TaskStatus.completed).toList();
+        final filteredTasks = widget.tasks.where((task) => 
+          (!task.status.isCompleted || widget.showCompleted) &&
+          task.status != TaskStatus.completedHidden
+        ).toList();
 
         if (filteredTasks.isEmpty) {
           return Center(
@@ -47,12 +48,8 @@ class _TaskListState extends State<TaskList> {
           itemBuilder: (context, index) {
             final task = filteredTasks[index];
             
-            // Make each task draggable
             return Draggable<int>(
-              // Pass the index as data
               data: index,
-              
-              // What the user sees while dragging
               feedback: Material(
                 elevation: 8.0,
                 color: Theme.of(context).cardColor,
@@ -72,7 +69,6 @@ class _TaskListState extends State<TaskList> {
                 ),
               ),
               
-              // What appears in the original location while dragging
               childWhenDragging: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
@@ -87,7 +83,6 @@ class _TaskListState extends State<TaskList> {
                 ),
               ),
               
-              // The normal task display
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
@@ -109,7 +104,7 @@ class _TaskListState extends State<TaskList> {
                       const SizedBox(width: 8),
                       IconButton(
                         icon: Icon(
-                          task.status == TaskStatus.completed ? Icons.check_circle : Icons.circle_outlined,
+                          task.status.isCompleted ? Icons.check_circle : Icons.circle_outlined,
                           color: task.statusColor,
                         ),
                         onPressed: () => widget.onTaskComplete(task),
@@ -119,11 +114,11 @@ class _TaskListState extends State<TaskList> {
                   title: Text(
                     task.name,
                     style: TextStyle(
-                      decoration: task.status == TaskStatus.completed ? TextDecoration.lineThrough : null,
+                      decoration: task.status.isCompleted ? TextDecoration.lineThrough : null,
                     ),
                   ),
                   subtitle: _buildSubtitle(context, task),
-                  trailing: task.isOverdue && task.status == TaskStatus.todo
+                  trailing: task.isOverdue && !task.status.isCompleted
                       ? const Icon(Icons.warning, color: Colors.red)
                       : null,
                   onTap: () => widget.onTaskTap(task),

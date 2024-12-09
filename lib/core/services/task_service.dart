@@ -17,8 +17,8 @@ class TaskService extends ChangeNotifier {
 
   // Getters
   List<Task> get tasks => List.unmodifiable(_tasks);
-  List<Task> get completedTasks => _tasks.where((task) => task.status == TaskStatus.completed).toList();
-  List<Task> get pendingTasks => _tasks.where((task) => task.status != TaskStatus.completed).toList();
+  List<Task> get completedTasks => _tasks.where((task) => task.status.isCompleted).toList();
+  List<Task> get pendingTasks => _tasks.where((task) => !task.status.isCompleted).toList();
   bool get isInitialized => _initialized;
   TaskFilter get currentFilter => _currentFilter;
 
@@ -63,6 +63,7 @@ class TaskService extends ChangeNotifier {
       return b.createdAt.compareTo(a.createdAt);
     });
   }
+
 
   Future<void> _initPrefs() async {
     _prefs = await SharedPreferences.getInstance();

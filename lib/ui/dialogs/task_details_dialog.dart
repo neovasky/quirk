@@ -47,6 +47,39 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     _status = widget.task.status;
   }
 
+  String _getStatusTitle(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.completedVisible:
+      case TaskStatus.completedHidden:
+        return 'Completed Task';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.onHold:
+        return 'Task On Hold';
+      case TaskStatus.cancelled:
+        return 'Cancelled Task';
+      case TaskStatus.todo:
+        return 'Edit Task';
+    }
+  }
+
+  String _getStatusText(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.completedVisible:
+        return 'Completed (Visible)';
+      case TaskStatus.completedHidden:
+        return 'Completed (Hidden)';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.onHold:
+        return 'On Hold';
+      case TaskStatus.cancelled:
+        return 'Cancelled';
+      case TaskStatus.todo:
+        return 'To Do';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -57,12 +90,11 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header with delete option
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  if (_status == TaskStatus.completed)
+                  if (_status.isCompleted)
                     const Icon(Icons.check_circle, color: Colors.green, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
@@ -79,10 +111,9 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
                 ],
               ),
             ),
-            
+
             const Divider(height: 1),
 
-            // Scrollable content
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -108,7 +139,14 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
                         border: OutlineInputBorder(),
                       ),
                       value: _status,
-                      items: TaskStatus.values.map((status) {
+                      items: [
+                        TaskStatus.todo,
+                        TaskStatus.inProgress,
+                        TaskStatus.onHold,
+                        TaskStatus.completedVisible,
+                        TaskStatus.completedHidden,
+                        TaskStatus.cancelled,
+                      ].map((status) {
                         return DropdownMenuItem(
                           value: status,
                           child: Text(_getStatusText(status)),
@@ -120,6 +158,7 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
                         }
                       },
                     ),
+
 
                     const SizedBox(height: 24),
                     
@@ -297,35 +336,6 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     );
   }
 
-  String _getStatusTitle(TaskStatus status) {
-    switch (status) {
-      case TaskStatus.completed:
-        return 'Completed Task';
-      case TaskStatus.inProgress:
-        return 'In Progress';
-      case TaskStatus.onHold:
-        return 'Task On Hold';
-      case TaskStatus.cancelled:
-        return 'Cancelled Task';
-      case TaskStatus.todo:
-        return 'Edit Task';
-    }
-  }
-
-  String _getStatusText(TaskStatus status) {
-    switch (status) {
-      case TaskStatus.completed:
-        return 'Completed';
-      case TaskStatus.inProgress:
-        return 'In Progress';
-      case TaskStatus.onHold:
-        return 'On Hold';
-      case TaskStatus.cancelled:
-        return 'Cancelled';
-      case TaskStatus.todo:
-        return 'To Do';
-    }
-  }
 
   String _getRecurrenceText(RecurrenceInterval interval) {
     switch (interval) {
@@ -348,22 +358,21 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     }
   }
 
-  Future<void> _confirmDelete(BuildContext context) async {
-    // Store the navigator in a local variable before async gap
-    final navigator = Navigator.of(context);
+Future<void> _confirmDelete(BuildContext context) async {
+    final navigatorState = Navigator.of(context);
     
     final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Delete Task'),
         content: const Text('Are you sure you want to delete this task?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
@@ -374,9 +383,10 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     );
 
     if (shouldDelete == true && mounted) {
-      navigator.pop('delete'); // Use the stored navigator
+      navigatorState.pop('delete');
     }
   }
+
 
   void _saveTask() {
     if (_nameController.text.isEmpty) {
@@ -396,7 +406,7 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
         _dueTime!.minute,
       );
     }
-
+    
     final task = widget.task.copyWith(
       name: _nameController.text,
       duration: Duration(minutes: _durationMinutes),
@@ -416,14 +426,15 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
   }
 
   Future<void> _selectDate(BuildContext context, bool isDueDate) async {
+    final currentContext = context;
     final DateTime? picked = await showDatePicker(
-      context: context,
+      context: currentContext,
       initialDate: (isDueDate ? _dueDate : _actionDate) ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
     );
 
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         if (isDueDate) {
           _dueDate = picked;
@@ -443,12 +454,5 @@ class _TaskDetailsDialogState extends State<TaskDetailsDialog> {
     if (picked != null) {
       setState(() => _dueTime = picked);
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _notesController.dispose();
-    super.dispose();
   }
 }

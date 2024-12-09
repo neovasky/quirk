@@ -15,6 +15,20 @@ class TaskFilter {
     this.autoSort = true,
   });
 
+  TaskFilter copyWith({
+    Set<TaskPriority>? priorities,
+    Set<String>? categories,
+    Set<TaskStatus>? statuses,
+    bool? autoSort,
+  }) {
+    return TaskFilter(
+      priorities: priorities ?? this.priorities,
+      categories: categories ?? this.categories,
+      statuses: statuses ?? this.statuses,
+      autoSort: autoSort ?? this.autoSort,
+    );
+  }
+
   bool matches(Task task) {
     // Priority filter
     if (priorities.isNotEmpty && !priorities.contains(task.priority)) {
@@ -36,27 +50,13 @@ class TaskFilter {
     return true;
   }
 
-  TaskFilter copyWith({
-    Set<TaskPriority>? priorities,
-    Set<String>? categories,
-    Set<TaskStatus>? statuses,
-    bool? autoSort,
-  }) {
-    return TaskFilter(
-      priorities: priorities ?? this.priorities,
-      categories: categories ?? this.categories,
-      statuses: statuses ?? this.statuses,
-      autoSort: autoSort ?? this.autoSort,
-    );
-  }
-
   // Helper methods for common filters
   static const TaskFilter activeOnly = TaskFilter(
     statuses: {TaskStatus.todo, TaskStatus.inProgress, TaskStatus.onHold},
   );
 
   static const TaskFilter completedOnly = TaskFilter(
-    statuses: {TaskStatus.completed},
+    statuses: {TaskStatus.completedVisible},
   );
 
   static const TaskFilter allTasks = TaskFilter();

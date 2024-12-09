@@ -1,3 +1,5 @@
+// enhanced_task_interface.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/task.dart';
@@ -24,7 +26,12 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.tasks.isEmpty) {
+    // Filter out hidden tasks
+    final visibleTasks = widget.tasks
+        .where((task) => task.status != TaskStatus.completedHidden)
+        .toList();
+
+    if (visibleTasks.isEmpty) {
       return const Center(
         child: Text('No tasks'),
       );
@@ -32,9 +39,9 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: widget.tasks.length,
+      itemCount: visibleTasks.length,
       itemBuilder: (context, index) {
-        final task = widget.tasks[index];
+        final task = visibleTasks[index];
         final isSelected = _selectedTaskId == task.id;
         
         return Draggable<Task>(
@@ -67,14 +74,13 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
 
   Widget _buildTaskCard(Task task, bool isSelected, bool isDragging, {bool isDropTarget = false}) {
     final theme = Theme.of(context);
-    final isCompleted = task.status == TaskStatus.completed;
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: isDragging ? 8 : isSelected ? 2 : 1,
-      color: task.isOverdue && task.status != TaskStatus.completed
+      color: task.isOverdue && !task.status.isCompleted
           ? Colors.red.withOpacity(0.1)
-          : theme.colorScheme.surface,
+          : theme.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isDropTarget
@@ -88,72 +94,40 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title and completion button
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Priority indicator and completion button combined
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 24,
-                      minHeight: 24,
-                    ),
-                    icon: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: task.statusColor,
-                          width: 2,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            task.name,
+                            style: TextStyle(
+                              fontSize: 16,
+                              decoration: task.status.isCompleted ? TextDecoration.lineThrough : null,
+                              color: task.status.isCompleted ? Colors.grey : null,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: task.status == TaskStatus.completed
-                          ? Icon(Icons.check, size: 18, color: task.statusColor)
-                          : null,
+                        IconButton(
+                          icon: Icon(
+                            task.status.isCompleted ? Icons.check_circle : Icons.circle_outlined,
+                            color: task.statusColor,
+                          ),
+                          onPressed: () => widget.onTaskComplete(task),
+                        ),
+                      ],
                     ),
-                    onPressed: () => widget.onTaskComplete(task),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      task.name,
-                      style: TextStyle(
-                        fontSize: 18,
-                        decoration: isCompleted ? TextDecoration.lineThrough : null,
-                        color: isCompleted ? Colors.grey : null,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {}, // Add menu options here
-                  ),
-                ],
+                    if (task.project != null || task.dueDate != null)
+                      const SizedBox(height: 8),
+                    if (task.project != null)
+                      _buildTag(Icons.folder, task.project!),
+                    if (task.dueDate != null)
+                      _buildTag(Icons.event_outlined, _formatDate(task.dueDate!)),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              // Tags and metadata
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (task.project != null)
-                    _buildTag(Icons.label_outline, task.project!),
-                  ...task.labels.map((label) => _buildTag(Icons.label_outline, label)),
-                  if (task.duration.inMinutes > 0)
-                    _buildTag(Icons.timer_outlined, '${task.duration.inMinutes}m'),
-                  if (task.dueDate != null)
-                    _buildTag(Icons.event_outlined, _formatDate(task.dueDate!)),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -161,22 +135,20 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
   Widget _buildTag(IconData icon, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.only(right: 8, top: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.grey),
+          Icon(icon, size: 14),
           const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 14,
-            ),
-          ),
+          Text(text, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -190,6 +162,6 @@ class _EnhancedTaskInterfaceState extends State<EnhancedTaskInterface> {
     if (difference == 1) return 'Tomorrow';
     if (difference == -1) return 'Yesterday';
 
-    return '${date.month}/${date.day}/${date.year}';
+    return '${date.month}/${date.day}';
   }
 }

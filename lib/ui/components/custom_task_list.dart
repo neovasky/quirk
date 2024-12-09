@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/task.dart';
+
 class TaskListTile extends StatelessWidget {
   final Task task;
   final VoidCallback onTap;
@@ -21,24 +22,21 @@ class TaskListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isCompleted = task.status.isCompleted;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       title: Text(
         task.name,
         style: theme.textTheme.titleMedium?.copyWith(
-          decoration: task.status == TaskStatus.completed ? 
-              TextDecoration.lineThrough : 
-              null,
-          color: task.status == TaskStatus.completed ? 
-              Colors.grey : 
-              null,
+          decoration: isCompleted ? TextDecoration.lineThrough : null,
+          color: isCompleted ? Colors.grey : null,
         ),
       ),
       subtitle: _buildSubtitle(context),
       trailing: IconButton(
         icon: Icon(
-          task.status == TaskStatus.completed ? Icons.check_circle : Icons.circle_outlined,
+          isCompleted ? Icons.check_circle : Icons.circle_outlined,
           color: task.statusColor,
         ),
         onPressed: onComplete,
@@ -58,7 +56,7 @@ class TaskListTile extends StatelessWidget {
         if (task.dueDate != null) 'Due: ${_formatDate(task.dueDate!)}',
       ].join(' • '),
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: task.status == TaskStatus.completed ? 
+        color: task.status.isCompleted ? 
             Colors.grey : 
             Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
       ),

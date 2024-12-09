@@ -1,3 +1,5 @@
+//task_filter_dialog.dart
+
 import 'package:flutter/material.dart';
 import '../../core/models/task_priority.dart';
 import '../../core/models/task.dart';
@@ -207,17 +209,19 @@ class _TaskFilterDialogState extends State<TaskFilterDialog> {
   }
 
   String _getStatusText(TaskStatus status) {
-    switch (status) {
-      case TaskStatus.todo:
-        return 'To Do';
-      case TaskStatus.inProgress:
-        return 'In Progress';
-      case TaskStatus.completed:
-        return 'Completed';
-      case TaskStatus.onHold:
-        return 'On Hold';
-      case TaskStatus.cancelled:
-        return 'Cancelled';
+      switch (status) {
+        case TaskStatus.todo:
+          return 'To Do';
+        case TaskStatus.inProgress:
+          return 'In Progress';
+        case TaskStatus.completedVisible:
+          return 'Completed (Visible)';
+        case TaskStatus.completedHidden:
+          return 'Completed (Hidden)';
+        case TaskStatus.onHold:
+          return 'On Hold';
+        case TaskStatus.cancelled:
+          return 'Cancelled';
+      }
     }
-  }
 }
