@@ -11,8 +11,9 @@ class TaskListTile extends StatelessWidget {
   final bool isDragging;
   final bool isHighlighted;
 
+  // Fix the constructor to use only one key
   const TaskListTile({
-    super.key,
+    super.key,  // Keep the regular key parameter
     required this.task,
     required this.onTap,
     required this.onComplete,
@@ -58,8 +59,10 @@ class TaskListTile extends StatelessWidget {
                           child: Text(
                             task.name,
                             style: theme.textTheme.bodyLarge?.copyWith(
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                              color: isCompleted ? theme.colorScheme.onSurface.withOpacity(0.6) : null,
+                              decoration: task.status == TaskStatus.completed ? 
+                                TextDecoration.lineThrough : null,
+                              color: task.status == TaskStatus.completed ? 
+                                theme.colorScheme.onSurface.withOpacity(0.6) : null,
                             ),
                           ),
                         ),
@@ -233,7 +236,9 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
   void _onAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
       _isAnimating = false;
-      widget.onComplete();  // Call the completion callback after animation finishes
+      widget.onComplete();  // Call completion callback only when animation completes
+    } else if (status == AnimationStatus.dismissed) {
+      _isAnimating = false;  // Reset animation state when reversed animation finishes
     }
   }
 
@@ -247,12 +252,12 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
       _controller.forward(from: 0.0);
       _burstController.forward(from: 0.0);
     } else {
+      _isAnimating = true;  // Add this line
       _controller.reverse();
       _burstController.reverse();
-      widget.onComplete();  // For unchecking, we can call immediately
+      widget.onComplete();  // Keep this for unchecking
     }
   }
-
   @override
   void didUpdateWidget(CompletionBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
