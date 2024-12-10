@@ -19,12 +19,11 @@ class _TaskScreenState extends State<TaskScreen> {
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _viewMenuButtonKey = GlobalKey();
   final ViewMenuController _viewMenuController = ViewMenuController();
-  bool _isSearching = false;
-  bool _isSidebarOpen = false;
   final ValueNotifier<bool> showCompletedTasks = ValueNotifier<bool>(false);
   final ValueNotifier<String> sortBy = ValueNotifier<String>('priority');
   final ValueNotifier<Set<TaskPriority>> selectedPriorities = ValueNotifier<Set<TaskPriority>>({});
   final ValueNotifier<bool> isManualSort = ValueNotifier<bool>(false);
+  bool _isSearching = false;
 
   @override
   void dispose() {
@@ -124,7 +123,6 @@ class _TaskScreenState extends State<TaskScreen> {
     }
   }
 
-
   void _handleTaskCompletion(Task task, TaskService taskService) {
       // Using debugPrint instead of print for development logging
       debugPrint('Handling task completion. Current status: ${task.status}');
@@ -149,7 +147,7 @@ class _TaskScreenState extends State<TaskScreen> {
     sortBy.value = 'manual';
   }
 
-void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted) {
+  void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted) {
     final completedTasks = taskService.tasks.where((task) => 
       task.status == TaskStatus.completedVisible || 
       task.status == TaskStatus.completedHidden
@@ -170,147 +168,70 @@ void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _isSidebarOpen ? 250 : 0,
-            child: Material(
-              color: Theme.of(context).colorScheme.surface,
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 24,
-                            child: Icon(Icons.person),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Account'),
-                                Text('Email', style: TextStyle(color: Colors.grey)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(Icons.add),
-                      title: const Text('Add Task'),
-                      onTap: () => _handleAddTask(context),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.inbox),
-                      title: const Text('Inbox'),
-                      onTap: () {}, // Implement inbox navigation
-                    ),
-                    const Divider(),
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('Favorite Projects', 
-                        style: TextStyle(color: Colors.grey)),
-                    ),
-                    const Spacer(),
-                    const Divider(),
-                    ListTile(
-                      leading: const Icon(Icons.settings),
-                      title: const Text('Settings'),
-                      onTap: () {}, // Implement settings navigation
-                    ),
-                  ],
+      appBar: AppBar(
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search tasks...',
+                  border: InputBorder.none,
                 ),
-              ),
-            ),
+                onChanged: (_) => setState(() {}),
+              )
+            : const Text('Tasks'),
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                if (_isSearching) {
+                  _searchController.clear();
+                }
+                _isSearching = !_isSearching;
+              });
+            },
           ),
-          Expanded(
-            child: Column(
-              children: [
-                AppBar(
-                  leading: IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () {
-                      setState(() => _isSidebarOpen = !_isSidebarOpen);
-                    },
-                  ),
-                  title: _isSearching
-                      ? TextField(
-                          controller: _searchController,
-                          autofocus: true,
-                          decoration: const InputDecoration(
-                            hintText: 'Search tasks...',
-                            border: InputBorder.none,
-                          ),
-                          onChanged: (_) => setState(() {}),
-                        )
-                      : const Text('Tasks'),
-                  actions: [
-                    IconButton(
-                      icon: Icon(_isSearching ? Icons.close : Icons.search),
-                      onPressed: () {
-                        setState(() {
-                          if (_isSearching) {
-                            _searchController.clear();
-                          }
-                          _isSearching = !_isSearching;
-                        });
-                      },
-                    ),
-                    IconButton(
-                      key: _viewMenuButtonKey,
-                      icon: const Icon(Icons.more_vert),
-                      onPressed: () {
-                        _viewMenuController.show(
-                          context, 
-                          _viewMenuButtonKey,
-                          showCompletedTasks: showCompletedTasks,
-                          sortBy: sortBy,
-                          selectedPriorities: selectedPriorities,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: Consumer<TaskService>(
-                    builder: (context, taskService, child) {
-                      return ValueListenableBuilder<bool>(
-                        valueListenable: showCompletedTasks,
-                        builder: (context, showCompleted, child) {
-                        _toggleCompletedTasksVisibility(taskService, showCompleted);
-                          return ValueListenableBuilder<String>(
-                            valueListenable: sortBy,
-                            builder: (context, currentSort, child) {
-                              return ValueListenableBuilder<Set<TaskPriority>>(
-                                valueListenable: selectedPriorities,
-                                builder: (context, priorities, child) {
-                                  return _TaskList(
-                                    tasks: _filterTasks(taskService.tasks),
-                                    onTaskTap: (task) => _handleTaskTap(context, task, taskService),
-                                    onTaskComplete: (task) => _handleTaskCompletion(task, taskService),
-                                    onReorder: (from, to) => _handleReorder(taskService, from, to),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+          IconButton(
+            key: _viewMenuButtonKey,
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              _viewMenuController.show(
+                context, 
+                _viewMenuButtonKey,
+                showCompletedTasks: showCompletedTasks,
+                sortBy: sortBy,
+                selectedPriorities: selectedPriorities,
+              );
+            },
           ),
         ],
+      ),
+      body: Consumer<TaskService>(
+        builder: (context, taskService, child) {
+          return ValueListenableBuilder<bool>(
+            valueListenable: showCompletedTasks,
+            builder: (context, showCompleted, child) {
+              _toggleCompletedTasksVisibility(taskService, showCompleted);
+              return ValueListenableBuilder<String>(
+                valueListenable: sortBy,
+                builder: (context, currentSort, child) {
+                  return ValueListenableBuilder<Set<TaskPriority>>(
+                    valueListenable: selectedPriorities,
+                    builder: (context, priorities, child) {
+                      return _TaskList(
+                        tasks: _filterTasks(taskService.tasks),
+                        onTaskTap: (task) => _handleTaskTap(context, task, taskService),
+                        onTaskComplete: (task) => _handleTaskCompletion(task, taskService),
+                        onReorder: (from, to) => _handleReorder(taskService, from, to),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _handleAddTask(context),
@@ -384,7 +305,7 @@ class _TaskList extends StatelessWidget {
               final toIndex = taskService.tasks.indexWhere((t) => t.id == task.id);
               
               if (fromIndex != -1 && toIndex != -1) {
-                taskService.reorderTasks(fromIndex, toIndex);
+                onReorder(fromIndex, toIndex);
               }
             },
             builder: (context, candidateData, rejectedData) {
