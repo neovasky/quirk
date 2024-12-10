@@ -46,6 +46,7 @@ class TaskListTile extends StatelessWidget {
                 isCompleted: isCompleted,
                 color: task.priority.color,
                 onComplete: onComplete,
+                task: task,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -147,12 +148,14 @@ class CompletionBubble extends StatefulWidget {
   final bool isCompleted;
   final Color color;
   final VoidCallback onComplete;
+  final Task task; 
 
   const CompletionBubble({
     super.key,
     required this.isCompleted,
     required this.color,
     required this.onComplete,    
+    required this.task, 
   });
 
   @override
@@ -175,6 +178,8 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
       duration: const Duration(milliseconds: 400),
       vsync: this,
     )..addStatusListener(_onAnimationStatus);
+
+    
 
     _burstController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -232,31 +237,37 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
   }
 
   void _onAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      _isAnimating = false;
-      widget.onComplete();  // Trigger when animation completes forward
-    } else if (status == AnimationStatus.dismissed) {
-      _isAnimating = false;
-    }
+      if (status == AnimationStatus.completed) {
+        // When the forward animation completes (filling the bubble)
+        _isAnimating = false;
+        widget.onComplete();  // Call onComplete for normal completion
+      } else if (status == AnimationStatus.dismissed) {
+        // When the reverse animation completes (emptying the bubble)
+        _isAnimating = false;
+        // Only trigger status change when a completed visible task's bubble animation finishes
+        if (widget.task.status == TaskStatus.completedVisible) {
+          widget.onComplete();  // This will change status to todo
+        }
+      }
+  }
+  void _handleTap() {
+      if (_isAnimating) return;
+      
+      HapticFeedback.lightImpact();
+      
+      if (!widget.isCompleted) {
+        // Starting completion animation
+        _isAnimating = true;
+        _controller.forward(from: 0.0);
+        _burstController.forward(from: 0.0);
+      } else if (widget.task.status == TaskStatus.completedVisible) {
+        // Starting uncomplete animation
+        _isAnimating = true;
+        _controller.reverse();
+        _burstController.reverse();
+      }
   }
 
-  void _handleTap() {
-    if (_isAnimating) return;  // Prevent multiple taps during animation
-    
-    HapticFeedback.lightImpact();
-    
-    if (!widget.isCompleted) {
-      _isAnimating = true;
-      _controller.forward(from: 0.0);
-      _burstController.forward(from: 0.0);
-    } else {
-      _isAnimating = true;  // Add this line
-      _controller.reverse();
-      _burstController.reverse();
-      widget.onComplete();  // Keep this for unchecking
-    }
-  }
-  
   @override
   void didUpdateWidget(CompletionBubble oldWidget) {
     super.didUpdateWidget(oldWidget);

@@ -118,14 +118,61 @@ class TaskService extends ChangeNotifier {
   Future<void> updateTask(Task task) async {
     final index = _tasks.indexWhere((t) => t.id == task.id);
     if (index != -1) {
+      // Special handling for status changes
+      final oldTask = _tasks[index];
+      final oldStatus = oldTask.status;
+      final newStatus = task.status;
+
+      // Log status change for debugging
+      debugPrint('Task status changing from $oldStatus to $newStatus');
+
+      // Update the task
       _tasks[index] = task;
-      if (_currentFilter.autoSort) {
+
+      // Sort if needed (but not for status toggles)
+      if (_currentFilter.autoSort && oldStatus == newStatus) {
         _sortTasks();
       }
+
+      // Save and notify
       await _saveTasks();
-      notifyListeners();  // Additional notification for immediate UI update
+      
+      // Ensure UI updates immediately for status changes
+      if (oldStatus != newStatus) {
+        notifyListeners();
+      }
     }
   }
+
+  Future<void> toggleTaskCompletion(Task task, bool showCompleted) async {
+    TaskStatus newStatus;
+    
+    if (task.status == TaskStatus.completedVisible) {
+      // If task is visible and completed, change to todo
+      newStatus = TaskStatus.todo;
+    } else {
+      // Otherwise use normal toggle behavior
+      newStatus = task.status.toggleCompletion(showCompleted);
+    }
+    
+    final updatedTask = task.copyWith(status: newStatus);
+    await updateTask(updatedTask);
+  }
+
+  // Helper method for toggling task visibility
+  Future<void> toggleTaskVisibility(Task task, bool showCompleted) async {
+    if (!task.status.isCompleted) return;
+    
+    final newStatus = showCompleted ? 
+      TaskStatus.completedVisible : 
+      TaskStatus.completedHidden;
+    
+    if (task.status != newStatus) {
+      final updatedTask = task.copyWith(status: newStatus);
+      await updateTask(updatedTask);
+    }
+  }
+
 
   Future<void> deleteTask(String taskId) async {
     _tasks.removeWhere((task) => task.id == taskId);
