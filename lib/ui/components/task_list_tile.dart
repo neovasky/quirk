@@ -171,15 +171,13 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
   late List<Animation<double>> _burstAnimations;
   bool _isAnimating = false;
 
-  @override
-  void initState() {
+@override
+void initState() {
     super.initState();
     _controller = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
-    )..addStatusListener(_onAnimationStatus);
-
-    
+    ); // Remove the addStatusListener here
 
     _burstController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -236,37 +234,43 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
     }
   }
 
-  void _onAnimationStatus(AnimationStatus status) {
-      if (status == AnimationStatus.completed) {
-        // When the forward animation completes (filling the bubble)
-        _isAnimating = false;
-        widget.onComplete();  // Call onComplete for normal completion
-      } else if (status == AnimationStatus.dismissed) {
-        // When the reverse animation completes (emptying the bubble)
-        _isAnimating = false;
-        // Only trigger status change when a completed visible task's bubble animation finishes
-        if (widget.task.status == TaskStatus.completedVisible) {
-          widget.onComplete();  // This will change status to todo
-        }
-      }
-  }
-  void _handleTap() {
-      if (_isAnimating) return;
-      
-      HapticFeedback.lightImpact();
-      
-      if (!widget.isCompleted) {
-        // Starting completion animation
+void _handleTap() {
+    if (_isAnimating) return;
+    
+    HapticFeedback.lightImpact();
+    
+    // Clear any existing listeners first
+    _controller.removeStatusListener(_onCompletionAnimationStatus);
+    _controller.removeStatusListener(_onUncompletionAnimationStatus);
+    
+    if (!widget.isCompleted) {
+        // Normal completion flow (todo -> completed)
         _isAnimating = true;
+        _controller.addStatusListener(_onCompletionAnimationStatus);
         _controller.forward(from: 0.0);
         _burstController.forward(from: 0.0);
-      } else if (widget.task.status == TaskStatus.completedVisible) {
-        // Starting uncomplete animation
+    } else {
+        // Uncompletion flow (completed -> todo)
         _isAnimating = true;
+        _controller.addStatusListener(_onUncompletionAnimationStatus);
         _controller.reverse();
         _burstController.reverse();
-      }
-  }
+    }
+}
+
+void _onCompletionAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+        _isAnimating = false;
+        widget.onComplete();  // This triggers the completion
+    }
+}
+
+void _onUncompletionAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed) {
+        _isAnimating = false;
+        widget.onComplete();  // This should trigger changing to todo
+    }
+}
 
   @override
   void didUpdateWidget(CompletionBubble oldWidget) {
@@ -282,13 +286,14 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
     }
   }
 
-  @override
-  void dispose() {
-    _controller.removeStatusListener(_onAnimationStatus);
+@override
+void dispose() {
+    _controller.removeStatusListener(_onCompletionAnimationStatus);
+    _controller.removeStatusListener(_onUncompletionAnimationStatus);
     _controller.dispose();
     _burstController.dispose();
     super.dispose();
-  }
+}
 
   @override
   Widget build(BuildContext context) {

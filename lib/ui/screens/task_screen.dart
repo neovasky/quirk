@@ -126,10 +126,20 @@ class _TaskScreenState extends State<TaskScreen> {
 
 
   void _handleTaskCompletion(Task task, TaskService taskService) {
-    final showCompleted = showCompletedTasks.value;
-    final newStatus = task.status.toggleCompletion(showCompleted);
-    final updatedTask = task.copyWith(status: newStatus);
-    taskService.updateTask(updatedTask);
+      // Using debugPrint instead of print for development logging
+      debugPrint('Handling task completion. Current status: ${task.status}');
+      
+      if (task.status == TaskStatus.completedVisible) {
+          debugPrint('Task was visible and completed - changing to todo');
+          taskService.updateTask(task.copyWith(status: TaskStatus.todo));
+      } else if (!task.status.isCompleted) {
+          debugPrint('Task was uncompleted - handling normal completion');
+          final showCompleted = showCompletedTasks.value;
+          final newStatus = showCompleted ? 
+              TaskStatus.completedVisible : 
+              TaskStatus.completedHidden;
+          taskService.updateTask(task.copyWith(status: newStatus));
+      }
   }
 
   void _handleReorder(TaskService taskService, int fromIndex, int toIndex) {
