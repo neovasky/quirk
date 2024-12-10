@@ -427,10 +427,27 @@ Future<void> _confirmDelete(BuildContext context) async {
 
   Future<void> _selectDate(BuildContext context, bool isDueDate) async {
     final currentContext = context;
+    final now = DateTime.now();
+    DateTime initialDate;
+    
+    if (isDueDate) {
+      initialDate = _dueDate ?? now;
+      // If the due date is in the past, use today as initial date
+      if (initialDate.isBefore(now)) {
+        initialDate = now;
+      }
+    } else {
+      initialDate = _actionDate ?? now;
+      // If the action date is in the past, use today as initial date
+      if (initialDate.isBefore(now)) {
+        initialDate = now;
+      }
+    }
+
     final DateTime? picked = await showDatePicker(
       context: currentContext,
-      initialDate: (isDueDate ? _dueDate : _actionDate) ?? DateTime.now(),
-      firstDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: now,
       lastDate: DateTime(2101),
     );
 

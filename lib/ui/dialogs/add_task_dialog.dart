@@ -34,7 +34,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
@@ -45,7 +44,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
             
             const Divider(height: 1),
 
-            // Scrollable content
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -54,7 +52,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                   children: [
                     const SizedBox(height: 16),
                     
-                    // Task Name
                     TextField(
                       controller: _nameController,
                       decoration: const InputDecoration(
@@ -65,7 +62,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
 
                     const SizedBox(height: 24),
                     
-                    // Duration Controls - Using a more compact layout
+                    // Duration Controls
                     Row(
                       children: [
                         Expanded(
@@ -153,7 +150,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
 
                     const SizedBox(height: 16),
 
-                    // Project field
                     TextField(
                       decoration: const InputDecoration(
                         labelText: 'Project (optional)',
@@ -170,18 +166,18 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                     Row(
                       children: [
                         Expanded(
-                          child: _buildDateButton(
-                            label: 'Due Date',
-                            date: _dueDate,
-                            onTap: () => _selectDate(context, true),
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text(_dueDate?.toString().split(' ')[0] ?? 'Set Due Date'),
+                            onPressed: () => _selectDate(context, true),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: _buildDateButton(
-                            label: 'Work Date',
-                            date: _actionDate,
-                            onTap: () => _selectDate(context, false),
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text(_actionDate?.toString().split(' ')[0] ?? 'Set Work Date'),
+                            onPressed: () => _selectDate(context, false),
                           ),
                         ),
                       ],
@@ -198,7 +194,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
 
                     const SizedBox(height: 16),
 
-                    // Notes
                     TextField(
                       controller: _notesController,
                       maxLines: 3,
@@ -215,7 +210,8 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
               ),
             ),
 
-            // Actions
+            const Divider(height: 1),
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -239,25 +235,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     );
   }
 
-  Widget _buildDateButton({
-    required String label,
-    required DateTime? date,
-    required VoidCallback onTap,
-  }) {
-    return OutlinedButton(
-      onPressed: onTap,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.calendar_today, size: 16),
-          const SizedBox(width: 8),
-          Text(date?.toString().split(' ')[0] ?? label),
-        ],
-      ),
-    );
-  }
-
-  // Helper Methods
   String _getRecurrenceText(RecurrenceInterval interval) {
     switch (interval) {
       case RecurrenceInterval.none:
@@ -316,7 +293,6 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     Navigator.of(context).pop(task);
   }
 
-  // Date/Time Selection Methods
   Future<void> _selectDate(BuildContext context, bool isDueDate) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -325,7 +301,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
       lastDate: DateTime(2101),
     );
 
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         if (isDueDate) {
           _dueDate = picked;
