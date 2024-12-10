@@ -152,7 +152,7 @@ class CompletionBubble extends StatefulWidget {
     super.key,
     required this.isCompleted,
     required this.color,
-    required this.onComplete,
+    required this.onComplete,    
   });
 
   @override
@@ -234,9 +234,9 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
   void _onAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
       _isAnimating = false;
-      widget.onComplete();  // Call completion callback only when animation completes
+      widget.onComplete();  // Trigger when animation completes forward
     } else if (status == AnimationStatus.dismissed) {
-      _isAnimating = false;  // Reset animation state when reversed animation finishes
+      _isAnimating = false;
     }
   }
 
@@ -256,6 +256,7 @@ class _CompletionBubbleState extends State<CompletionBubble> with TickerProvider
       widget.onComplete();  // Keep this for unchecking
     }
   }
+  
   @override
   void didUpdateWidget(CompletionBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
