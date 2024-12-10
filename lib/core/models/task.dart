@@ -33,7 +33,10 @@ extension TaskStatusHelpers on TaskStatus {
     
   TaskStatus toggleCompletion(bool showCompleted) {
     if (isCompleted) {
-      return TaskStatus.todo;
+      // Instead of going to todo, switch between visible and hidden
+      return this == TaskStatus.completedVisible ? 
+        TaskStatus.completedHidden : 
+        TaskStatus.completedVisible;
     } else {
       return showCompleted ? 
         TaskStatus.completedVisible : 

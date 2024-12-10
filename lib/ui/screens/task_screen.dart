@@ -139,13 +139,21 @@ class _TaskScreenState extends State<TaskScreen> {
     sortBy.value = 'manual';
   }
 
-  void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted) {
-    final tasks = taskService.tasks.where((task) => task.status.isCompleted);
-    for (var task in tasks) {
-      final updatedTask = task.copyWith(
-        status: task.status.updateVisibility(showCompleted)
-      );
-      taskService.updateTask(updatedTask);
+void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted) {
+    final completedTasks = taskService.tasks.where((task) => 
+      task.status == TaskStatus.completedVisible || 
+      task.status == TaskStatus.completedHidden
+    );
+    
+    for (var task in completedTasks) {
+      final newStatus = showCompleted 
+          ? TaskStatus.completedVisible 
+          : TaskStatus.completedHidden;
+          
+      if (task.status != newStatus) {
+        final updatedTask = task.copyWith(status: newStatus);
+        taskService.updateTask(updatedTask);
+      }
     }
   }
 
