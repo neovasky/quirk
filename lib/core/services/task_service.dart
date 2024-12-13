@@ -28,50 +28,53 @@ class TaskService extends ChangeNotifier {
 
   void updateFilter(TaskFilter newFilter) {
     _currentFilter = newFilter;
+
+    // Only sort if not in manual mode
     if (newFilter.autoSort && _lastSortMode != null && !_isManualMode) {
       sortTasks(_lastSortMode!);
       notifyListeners();
     }
   }
 
-  void sortTasks(String sortMode) {
-    if (sortMode.toLowerCase() == 'manual') {
-      _isManualMode = true;
-      // Keep current order when switching to manual
-      return;
+void sortTasks(String sortMode) {
+  if (sortMode.toLowerCase() == 'manual') {
+    // Enable manual mode and retain the current order
+    _isManualMode = true;
+    return;
+  }
+
+  _isManualMode = false; // Disable manual mode
+  _lastSortMode = sortMode;
+
+  // Apply sorting logic based on the selected mode
+  _tasks.sort((a, b) {
+    // Sort by status if filtered
+    if (_currentFilter.statuses.isNotEmpty) {
+      final aStatusIndex = a.status.index;
+      final bStatusIndex = b.status.index;
+      if (aStatusIndex != bStatusIndex) {
+        return aStatusIndex.compareTo(bStatusIndex);
+      }
     }
 
-    _isManualMode = false;
-    _lastSortMode = sortMode;
+    // Sort by the specified mode
+    switch (sortMode.toLowerCase()) {
+      case 'priority':
+        return a.priority.index.compareTo(b.priority.index);
+      case 'due date':
+        if (a.dueDate == null && b.dueDate == null) return 0;
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      case 'created':
+        return b.createdAt.compareTo(a.createdAt);
+      default:
+        return 0;
+    }
+  });
 
-    _tasks.sort((a, b) {
-      // First sort by status if filtered
-      if (_currentFilter.statuses.isNotEmpty) {
-        final aStatusIndex = a.status.index;
-        final bStatusIndex = b.status.index;
-        if (aStatusIndex != bStatusIndex) {
-          return aStatusIndex.compareTo(bStatusIndex);
-        }
-      }
-
-      // Then apply the selected sort
-      switch (sortMode.toLowerCase()) {
-        case 'priority':
-          return a.priority.index.compareTo(b.priority.index);  // HIGH to LOW
-        case 'due date':
-          if (a.dueDate == null && b.dueDate == null) return 0;
-          if (a.dueDate == null) return 1;
-          if (b.dueDate == null) return -1;
-          return a.dueDate!.compareTo(b.dueDate!);
-        case 'created':
-          return b.createdAt.compareTo(a.createdAt);
-        default:
-          return 0;
-      }
-    });
-    
-    notifyListeners();
-  }
+  notifyListeners();
+}
 
   Future<void> _initPrefs() async {
     _prefs = await SharedPreferences.getInstance();
