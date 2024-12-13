@@ -22,7 +22,6 @@ class _TaskScreenState extends State<TaskScreen> {
   final ValueNotifier<bool> showCompletedTasks = ValueNotifier<bool>(false);
   final ValueNotifier<String> sortBy = ValueNotifier<String>('priority');
   final ValueNotifier<Set<TaskPriority>> selectedPriorities = ValueNotifier<Set<TaskPriority>>({});
-  final ValueNotifier<bool> isManualSort = ValueNotifier<bool>(false);
   bool _isSearching = false;
 
   @override
@@ -31,15 +30,16 @@ class _TaskScreenState extends State<TaskScreen> {
     showCompletedTasks.dispose();
     sortBy.dispose();
     selectedPriorities.dispose();
-    isManualSort.dispose();
     super.dispose();
   }
 
-  List<Task> _filterTasks(List<Task> tasks) {
+List<Task> _filterTasks(List<Task> tasks) {
     List<Task> filteredTasks = List<Task>.from(tasks);
 
     // Filter out hidden tasks
-    filteredTasks = filteredTasks.where((task) => task.status != TaskStatus.completedHidden).toList();
+    filteredTasks = filteredTasks.where((task) => 
+      task.status != TaskStatus.completedHidden
+    ).toList();
 
     // Apply priority filters if any are selected
     if (selectedPriorities.value.isNotEmpty) {
@@ -48,21 +48,18 @@ class _TaskScreenState extends State<TaskScreen> {
       ).toList();
     }
 
-    // Only sort if not in manual mode
-    if (!isManualSort.value) {
+    // Only sort if not in manual mode AND a sort mode is selected
+    if (sortBy.value.toLowerCase() != 'manual') {
       filteredTasks.sort((a, b) {
         // Always put completed tasks at the bottom
-        if (a.status.isCompleted && !b.status.isCompleted) {
-          return 1;
-        }
-        if (!a.status.isCompleted && b.status.isCompleted) {
-          return -1;
-        }
+        if (a.status.isCompleted && !b.status.isCompleted) return 1;
+        if (!a.status.isCompleted && b.status.isCompleted) return -1;
 
         // Then apply selected sort
         switch (sortBy.value.toLowerCase()) {
           case 'priority':
-            return a.priority.index.compareTo(b.priority.index);
+            // HIGH (0) to LOW (2) order
+            return a.priority.index.compareTo(b.priority.index);  // Removed the reverse comparison
           case 'due date':
             if (a.dueDate == null && b.dueDate == null) return 0;
             if (a.dueDate == null) return 1;
@@ -79,7 +76,7 @@ class _TaskScreenState extends State<TaskScreen> {
     // Apply search filter if text exists
     if (_searchController.text.isNotEmpty) {
       final query = _searchController.text.toLowerCase();
-      return filteredTasks.where((task) {
+      filteredTasks = filteredTasks.where((task) {
         final titleMatch = task.name.toLowerCase().contains(query);
         final projectMatch = task.project?.toLowerCase().contains(query) ?? false;
         final notesMatch = task.notes?.toLowerCase().contains(query) ?? false;
@@ -124,27 +121,27 @@ class _TaskScreenState extends State<TaskScreen> {
   }
 
   void _handleTaskCompletion(Task task, TaskService taskService) {
-      // Using debugPrint instead of print for development logging
-      debugPrint('Handling task completion. Current status: ${task.status}');
+    debugPrint('Handling task completion. Current status: ${task.status}');
       
-      if (task.status == TaskStatus.completedVisible) {
-          debugPrint('Task was visible and completed - changing to todo');
-          taskService.updateTask(task.copyWith(status: TaskStatus.todo));
-      } else if (!task.status.isCompleted) {
-          debugPrint('Task was uncompleted - handling normal completion');
-          final showCompleted = showCompletedTasks.value;
-          final newStatus = showCompleted ? 
-              TaskStatus.completedVisible : 
-              TaskStatus.completedHidden;
-          taskService.updateTask(task.copyWith(status: newStatus));
-      }
+    if (task.status == TaskStatus.completedVisible) {
+      debugPrint('Task was visible and completed - changing to todo');
+      taskService.updateTask(task.copyWith(status: TaskStatus.todo));
+    } else if (!task.status.isCompleted) {
+      debugPrint('Task was uncompleted - handling normal completion');
+      final showCompleted = showCompletedTasks.value;
+      final newStatus = showCompleted ? 
+        TaskStatus.completedVisible : 
+        TaskStatus.completedHidden;
+      taskService.updateTask(task.copyWith(status: newStatus));
+    }
   }
 
-  void _handleReorder(TaskService taskService, int fromIndex, int toIndex) {
-    taskService.reorderTasks(fromIndex, toIndex);
-    // Switch to manual sorting when user reorders
-    isManualSort.value = true;
+void _handleReorder(TaskService taskService, int fromIndex, int toIndex) {
+    // Switch to manual sorting mode
     sortBy.value = 'manual';
+    
+    // Execute the reorder
+    taskService.reorderTasks(fromIndex, toIndex);
   }
 
   void _toggleCompletedTasksVisibility(TaskService taskService, bool showCompleted) {
@@ -155,12 +152,11 @@ class _TaskScreenState extends State<TaskScreen> {
     
     for (var task in completedTasks) {
       final newStatus = showCompleted 
-          ? TaskStatus.completedVisible 
-          : TaskStatus.completedHidden;
+        ? TaskStatus.completedVisible 
+        : TaskStatus.completedHidden;
           
       if (task.status != newStatus) {
-        final updatedTask = task.copyWith(status: newStatus);
-        taskService.updateTask(updatedTask);
+        taskService.updateTask(task.copyWith(status: newStatus));
       }
     }
   }
@@ -170,16 +166,16 @@ class _TaskScreenState extends State<TaskScreen> {
     return Scaffold(
       appBar: AppBar(
         title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search tasks...',
-                  border: InputBorder.none,
-                ),
-                onChanged: (_) => setState(() {}),
-              )
-            : const Text('Tasks'),
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search tasks...',
+                border: InputBorder.none,
+              ),
+              onChanged: (_) => setState(() {}),
+            )
+          : const Text('Tasks'),
         actions: [
           IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -224,6 +220,7 @@ class _TaskScreenState extends State<TaskScreen> {
                         onTaskTap: (task) => _handleTaskTap(context, task, taskService),
                         onTaskComplete: (task) => _handleTaskCompletion(task, taskService),
                         onReorder: (from, to) => _handleReorder(taskService, from, to),
+                        sortingMode: currentSort,  // Pass the current sort mode
                       );
                     },
                   );
@@ -246,12 +243,14 @@ class _TaskList extends StatelessWidget {
   final Function(Task) onTaskTap;
   final Function(Task) onTaskComplete;
   final Function(int, int) onReorder;
+  final String sortingMode;
 
   const _TaskList({
     required this.tasks,
     required this.onTaskTap,
     required this.onTaskComplete,
     required this.onReorder,
+    required this.sortingMode,
   });
 
   @override
@@ -267,7 +266,7 @@ class _TaskList extends StatelessWidget {
         final task = tasks[index];
         return Draggable<Task>(
           data: task,
-          maxSimultaneousDrags: 1,
+          maxSimultaneousDrags: 1,  // Always allow dragging
           dragAnchorStrategy: (draggable, context, position) {
             final RenderBox renderBox = context.findRenderObject() as RenderBox;
             return renderBox.globalToLocal(position);
@@ -311,12 +310,13 @@ class _TaskList extends StatelessWidget {
             builder: (context, candidateData, rejectedData) {
               return Row(
                 children: [
+                  // Replace dots with arrow
                   SizedBox(
                     width: 40,
                     child: Transform.rotate(
-                      angle: 3.14159 / 180,
+                      angle: 3.14159 / 180,  // Slight rotation for the arrow
                       child: const Icon(
-                        Icons.chevron_right,
+                        Icons.chevron_right,  // Arrow icon instead of drag_indicator
                         size: 20,
                         color: Colors.grey,
                       ),
@@ -328,7 +328,7 @@ class _TaskList extends StatelessWidget {
                       task: task,
                       onTap: () => onTaskTap(task),
                       onComplete: () => onTaskComplete(task),
-                      isDraggable: false,
+                      isDraggable: true,  // Always allow dragging
                       isHighlighted: candidateData.isNotEmpty,
                     ),
                   ),

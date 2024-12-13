@@ -120,6 +120,7 @@ class ViewMenuOverlay extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Priority Filters Section
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -154,6 +155,8 @@ class ViewMenuOverlay extends StatelessWidget {
                         ],
                       ),
                     ),
+
+                    // Sorting Section
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -165,29 +168,58 @@ class ViewMenuOverlay extends StatelessWidget {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              'Priority',
-                              'Due Date',
-                              'Created',
-                            ].map((option) {
-                              return ValueListenableBuilder<String>(
+                              ValueListenableBuilder<String>(
                                 valueListenable: sortBy,
                                 builder: (context, currentSort, _) {
+                                  final bool isSelected = currentSort.toLowerCase() == 'manual';
                                   return ChoiceChip(
-                                    label: Text(option),
-                                    selected: currentSort.toLowerCase() == option.toLowerCase(),
+                                    label: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Transform.rotate(
+                                          angle: 3.14159 / 180,
+                                          child: Icon(
+                                            Icons.chevron_right,
+                                            size: 16,
+                                            color: isSelected ? Colors.white : Colors.grey,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text('Manual'),
+                                      ],
+                                    ),
+                                    selected: isSelected,
                                     onSelected: (selected) {
                                       if (selected) {
-                                        sortBy.value = option.toLowerCase();
+                                        sortBy.value = 'manual';
                                       }
                                     },
                                   );
                                 },
-                              );
-                            }).toList(),
+                              ),
+                              ...['Priority', 'Due Date', 'Created'].map((option) =>
+                                ValueListenableBuilder<String>(
+                                  valueListenable: sortBy,
+                                  builder: (context, currentSort, _) {
+                                    return ChoiceChip(
+                                      label: Text(option),
+                                      selected: currentSort.toLowerCase() == option.toLowerCase(),
+                                      onSelected: (selected) {
+                                        if (selected) {
+                                          sortBy.value = option.toLowerCase();
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                              ).toList(),
+                            ],
                           ),
                         ],
                       ),
                     ),
+
+                    // Show Completed Tasks Section
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
